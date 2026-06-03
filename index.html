@@ -1,0 +1,781 @@
+full_pos_system_code = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comprehensive Cafeteria POS with Dynamic Menu Editor</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 20px; background-color: #f0f2f5; }
+        .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .container { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        #searchBar { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        .category-container { margin-bottom: 30px; }
+        .category-name { border-bottom: 2px solid #3498db; color: #2c3e50; padding-bottom: 5px; margin-bottom: 15px; font-size: 1.2em; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+        .menu-item { background: #fff; border: 1px solid #e1e4e8; padding: 10px; border-radius: 6px; cursor: pointer; text-align: center; transition: 0.2s; position: relative; }
+        .menu-item:hover { background: #e8f4fd; transform: translateY(-2px); border-color: #3498db; }
+        .menu-item .name { font-weight: bold; font-size: 0.9em; display: block; margin-bottom: 5px; height: 40px; overflow: hidden; }
+        .menu-item .price { color: #27ae60; font-weight: bold; }
+        .cart-list { list-style: none; padding: 0; max-height: 400px; overflow-y: auto; }
+        .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .checkout-btn { background: #27ae60; color: white; border: none; width: 100%; padding: 15px; border-radius: 5px; font-size: 1.1em; cursor: pointer; margin-top: 15px; }
+        .refund-btn { color: #e74c3c; background: none; border: 1px solid #e74c3c; padding: 2px 5px; border-radius: 3px; cursor: pointer; margin-left: 10px; font-size: 0.8em; }
+        .transaction-card { border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #fafafa; }
+        .transaction-header { font-weight: bold; border-bottom: 1px solid #ddd; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #f8f9fa; }
+        .inventory-input, .recipe-select, .recipe-input { width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box; }
+        .add-btn, .save-btn { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 10px; font-size: 14px; }
+        .add-btn:hover { background: #2980b9; }
+        .recipe-row { background: #fdfdfd; border-bottom: 1px solid #f0f0f0; padding: 8px 0; display: flex; gap: 10px; align-items: center; }
+        .recipe-builder-container { max-height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 5px; }
+        .searchable-select-container { position: relative; }
+        #recipeSearchInput { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px; }
+        #recipeMenuOptions { position: absolute; width: 100%; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ddd; z-index: 100; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .search-option { padding: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        .search-option:hover { background: #f0f7ff; }
+        
+        /* Analytics & Management Style Additions */
+        .analytics-tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .analytics-tab-btn { padding: 10px 20px; border: none; background: #e1e4e8; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .analytics-tab-btn.active { background: #3498db; color: white; }
+        .analytics-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .clickable-row { cursor: pointer; transition: 0.2s; }
+        .clickable-row:hover { background: #f0f7ff !important; }
+        .trend-badge { font-weight: bold; padding: 3px 8px; border-radius: 4px; font-size: 0.85em; display: inline-block; }
+        .trend-up { background: #e8f8f5; color: #27ae60; }
+        .trend-down { background: #fdedec; color: #e74c3c; }
+        .trend-neutral { background: #f4f6f7; color: #7f8c8d; }
+        .toggle-container { margin-bottom: 15px; display: flex; gap: 15px; align-items: center; background: #f8f9fa; padding: 10px; border-radius: 5px; }
+        .management-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 15px; }
+        .management-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .danger-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+        .danger-btn:hover { background: #c0392b; }
+    </style>
+</head>
+<body>
+
+<div class='header'>
+    <h1>Cafeteria Management Dashboard</h1>
+    <div>
+        <label style="color: white; font-size: 0.8em; margin-right: 10px;">Transaction Date:</label>
+        <input type="date" id="posSimulationDate" style="padding: 5px; border-radius: 4px; border: none;">
+        <span style="margin-left: 20px;">Daily Total: ₱<span id='salesTotal'>0</span></span>
+    </div>
+</div>
+
+<input type='text' id='searchBar' placeholder='Search for items or categories...' onkeyup='filterMenu()'>
+
+<div class='container'>
+    <div class='panel'>
+        <div id='menuDisplay'></div>
+    </div>
+
+    <div class='panel'>
+        <h2>Current Order</h2>
+        <ul id='cartList' class='cart-list'></ul>
+        <div style='font-size: 1.5em; font-weight: bold; margin-top: 20px;'>Total: ₱<span id='cartTotal'>0</span></div>
+        <button class='checkout-btn' onclick='checkout()'>Complete Sale</button>
+
+        <h2 style='margin-top:40px;'>Transaction Log</h2>
+        <div id='salesLog'></div>
+    </div>
+</div>
+
+<div class='panel' style='border-top: 4px solid #f39c12;'>
+    <h2>Active Menu Offerings & Inventory Registry</h2>
+    <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">Add new items to replace discontinued options, or view the complete list below to completely drop items from rotation.</p>
+    
+    <div class="management-form-grid">
+        <div>
+            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Category Select/Type:</label>
+            <input type="text" id="newMenuCategory" list="existingCategories" class="management-input" placeholder="e.g., Hot Rice Meals">
+            <datalist id="existingCategories"></datalist>
+        </div>
+        <div>
+            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Replacement/New Item Name:</label>
+            <input type="text" id="newMenuItemName" class="management-input" placeholder="e.g., Beef Shawarma Rice">
+        </div>
+        <div>
+            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Selling Price (₱):</label>
+            <input type="number" id="newMenuPrice" class="management-input" min="0" placeholder="180">
+        </div>
+        <div style="display: flex; align-items: flex-end;">
+            <button class="add-btn" style="background:#f39c12; margin:0; width:100%; padding:10px;" onclick="addNewItemToMenu()">+ Launch New Item</button>
+        </div>
+    </div>
+
+    <table style="margin-top: 15px;">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Menu Item Product Name</th>
+                <th>Price</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="menuManagementTableBody"></tbody>
+    </table>
+</div>
+
+<div class='panel'>
+    <h2>Recipe Configuration Panel</h2>
+    <p style="font-size: 0.9em; color: #666;">Search and select a menu item to edit its recipe.</p>
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+        <div class="searchable-select-container">
+            <label style="font-weight: bold; display:block; margin-bottom: 5px;">1. Search Menu Item:</label>
+            <input type="text" id="recipeSearchInput" placeholder="Type to search..." onfocus="toggleRecipeList(true)" onkeyup="filterRecipeSearch()">
+            <div id="recipeMenuOptions"></div>
+            <input type="hidden" id="selectedRecipeItem" value="">
+            <div id="currentlyEditingLabel" style="margin-top:10px; font-style: italic; color: #3498db; font-size: 0.9em;">No item selected</div>
+        </div>
+        <div>
+            <label style="font-weight: bold; display:block; margin-bottom: 5px;">2. Edit Ingredients Recipe:</label>
+            <div id="recipeBuilder" class="recipe-builder-container"></div>
+            <button class="add-btn" style="margin-top:10px; background:#27ae60;" onclick="addIngredientToRecipeRow()">+ Add Ingredient Row</button>
+            <button class="save-btn" style="margin-top:10px; float: right;" onclick="saveRecipe()">Save Recipe</button>
+        </div>
+    </div>
+</div>
+
+<div class='panel'>
+    <h2>Stock & Inventory Control</h2>
+    <button class='add-btn' onclick='addInventoryItem()'>+ Add New Stock Ingredient</button>
+    <table>
+        <thead><tr><th>Ingredient/Item Name</th><th>Quantity</th><th>Unit</th></tr></thead>
+        <tbody id='inventoryBody'></tbody>
+    </table>
+</div>
+
+<div class='panel' style='background: #fff; border-top: 4px solid #3498db;'>
+    <h2>Advanced Sales Performance & Auditing Matrix</h2>
+    <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">Click on a timeline row below to display its itemized units and category performance breakdowns.</p>
+    
+    <div class="analytics-tabs">
+        <button class="analytics-tab-btn active" id="tab-days" onclick="switchAnalyticsInterval('days')">Daily Sales</button>
+        <button class="analytics-tab-btn" id="tab-weeks" onclick="switchAnalyticsInterval('weeks')">Weekly Sales</button>
+        <button class="analytics-tab-btn" id="tab-months" onclick="switchAnalyticsInterval('months')">Monthly Sales</button>
+        <button class="analytics-tab-btn" id="tab-years" onclick="switchAnalyticsInterval('years')">Annual Sales</button>
+    </div>
+
+    <div class="analytics-layout">
+        <div>
+            <h3>Interval Summary Logs</h3>
+            <table style="margin-top: 10px;">
+                <thead>
+                    <tr>
+                        <th id="periodColumnHeader">Date Interval</th>
+                        <th>Revenue</th>
+                        <th>PoP Growth</th>
+                        <th>Orders Count</th>
+                        <th>Volume Shift</th>
+                    </tr>
+                </thead>
+                <tbody id="analyticsSummaryBody">
+                    <tr><td colspan="5" style="text-align:center; color:#aaa;">No transactions processed yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 id="drilldownTitle">Drilldown Analysis Data</h3>
+                <div class="toggle-container" style="margin: 0; padding: 5px 10px;">
+                    <label style="font-weight: bold; font-size: 0.85em;">Group Mode:</label>
+                    <label style="font-size: 0.85em;"><input type="radio" name="drilldownGroup" value="item" checked onchange="renderPeriodDrilldown()"> By Item</label>
+                    <label style="font-size: 0.85em;"><input type="radio" name="drilldownGroup" value="category" onchange="renderPeriodDrilldown()"> By Category</label>
+                </div>
+            </div>
+            <table style="margin-top: 10px;">
+                <thead>
+                    <tr>
+                        <th id="drilldownNameHeader">Line Identity Target</th>
+                        <th>Quantity Sold</th>
+                        <th>Revenue Generated</th>
+                    </tr>
+                </thead>
+                <tbody id="analyticsDrilldownBody">
+                    <tr><td colspan="3" style="text-align: center; color: #aaa; font-style: italic;">Select an interval row from the summary matrix to evaluate its performance components.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+const menu = {
+    'Blended': {
+        'Durian Blend': { price: 195, ingredients: { 'Durian Fruit': 100 } },
+        'Melon Blend': { price: 150, ingredients: { 'Melon Fruit': 100 } },
+        'Ube Blend': { price: 185, ingredients: { 'Flour': 10 } }
+    },
+    'Bottled water': { 'Bottled Water': { price: 20, ingredients: { 'Bottled Water': 1 } } },
+    'Chip snacks': { 'Chips': { price: 50, ingredients: { 'Chips': 1 } } },
+    'Coffee-Based': {
+        'Cafe Americano': { price: 110, ingredients: { 'Coffee Beans': 18, 'Water Cup': 1 } },
+        'Cafe Latte': { price: 125, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } },
+        'Cafe Mocha': { price: 140, ingredients: { 'Coffee Beans': 18, 'Milk': 150, 'Chocolate': 30 } },
+        'Cappuccino Hot': { price: 125, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } },
+        'Hazelnut Latte': { price: 135, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } },
+        'Ice Caramel Macchiato': { price: 140, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } },
+        'Ice Spanish Latte': { price: 140, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } }
+    },
+    'Desserts': {
+        'Halong Amara': { price: 160, ingredients: {} },
+        'Mais Con Yelo': { price: 155, ingredients: {} }
+    },
+    'Floral spring roll': { 'Spring Roll': { price: 150, ingredients: { 'Flour': 50 } } },
+    'Fruit mix': { 'Fruit Mix': { price: 80, ingredients: {} } },
+    'Fruit Soda': {
+        'Blueberry Cola Smash': { price: 60, ingredients: {} },
+        'Blueberry Soda': { price: 60, ingredients: {} },
+        'Green Apple Soda': { price: 55, ingredients: {} },
+        'Lemon Soda': { price: 55, ingredients: {} },
+        'Lychee Soda': { price: 55, ingredients: {} },
+        'Pea Tea Lemonade': { price: 55, ingredients: {} },
+        'Strawberry Blossom': { price: 55, ingredients: {} },
+        'Taro with Soda Smash': { price: 60, ingredients: {} }
+    },
+    'Hot Rice Meals': {
+        'Beef Tapa': { price: 195, ingredients: { 'Beef': 150, 'Rice': 1 } },
+        'Beef Tapa w/ Egg & Drink': { price: 185, ingredients: { 'Beef': 120, 'Rice': 1, 'Egg': 1 } },
+        'Burger Patty w/ Egg & Drink': { price: 150, ingredients: { 'Egg': 1, 'Rice': 1 } },
+        'Chicken Tocino w/ Egg & Drink': { price: 150, ingredients: { 'Chicken': 150, 'Egg': 1, 'Rice': 1 } },
+        'Corned Beef': { price: 180, ingredients: { 'Rice': 1 } },
+        'Egg': { price: 15, ingredients: { 'Egg': 1 } },
+        'Fried Beef Siomai w/ Rice': { price: 130, ingredients: { 'Beef': 60, 'Rice': 1 } },
+        'Hungarian Sausage': { price: 180, ingredients: { 'Rice': 1 } },
+        'Longganisa w/ Rice & Egg': { price: 190, ingredients: { 'Rice': 1, 'Egg': 1 } },
+        'Pork Chorizo w/ Rice': { price: 150, ingredients: { 'Rice': 1 } },
+        'Pork Tocino w/ Egg': { price: 150, ingredients: { 'Egg': 1, 'Pork': 100 } },
+        'Rice': { price: 30, ingredients: { 'Rice': 1 } },
+        'Spam': { price: 170, ingredients: { 'Rice': 1 } }
+    },
+    'Ice Cream': { 'Melon Ice Cream': { price: 40, ingredients: {} } },
+    'Pastries': {
+        'Assorted Pastries': { price: 50, ingredients: { 'Flour': 100 } },
+        'Blueberry Muffins': { price: 60, ingredients: { 'Flour': 120 } },
+        'Cheese Roll': { price: 40, ingredients: { 'Flour': 80 } },
+        'Choco Chip Cookies': { price: 50, ingredients: { 'Flour': 50 } },
+        'Cinnamon Rolls': { price: 60, ingredients: { 'Flour': 100 } },
+        'Double Chocolate Muffin': { price: 60, ingredients: { 'Flour': 120 } },
+        'Ensaymada Biscoff': { price: 55, ingredients: { 'Flour': 100 } },
+        'Ensaymada Cream Cheese': { price: 55, ingredients: { 'Flour': 100 } },
+        'Ensaymada Dulce de Leche': { price: 55, ingredients: { 'Flour': 100 } },
+        "Rosario's Durian Bites": { price: 125, ingredients: {} },
+        "Rosario's Durian Dragee": { price: 195, ingredients: {} },
+        "Rosario's Jackfruit Bites": { price: 125, ingredients: {} },
+        "Rosario's Jackfruit Dragee": { price: 195, ingredients: {} },
+        "Rosario's Mango Dragee": { price: 195, ingredients: {} },
+        "Rosario's Marang Dragee": { price: 195, ingredients: {} },
+        'S&R Cream cheese': { price: 50, ingredients: {} },
+        'SR Dulce': { price: 50, ingredients: {} }
+    },
+    'Penne Pasta Spag': { 'Penne Pasta Spaghetti': { price: 150, ingredients: { 'Flour': 150 } } },
+    'Snacks': {
+        'Beef Burger w/ Sour Cream': { price: 195, ingredients: { 'Beef': 100 } },
+        'B1T1 Classic Burger': { price: 195, ingredients: { 'Beef': 200 } },
+        'Chicken Duo Fries': { price: 165, ingredients: { 'Chicken': 200 } },
+        'Garlic Angus Beef Burger': { price: 169, ingredients: { 'Beef': 120 } },
+        'Prawn with Fries': { price: 100, ingredients: {} },
+        'Sour Cream Fries': { price: 75, ingredients: {} }
+    },
+    'Softdrinks': { 'Mismo 190ml': { price: 20, ingredients: { 'Mismo 190ml': 1 } } },
+    'Sundae': { 'Chocolate Sundae': { price: 80, ingredients: { 'Chocolate': 50 } } }
+};
+
+let inventory = {
+    'Rice': {qty: 100, unit: 'servings'},
+    'Egg': {qty: 50, unit: 'pcs'},
+    'Pork': {qty: 3000, unit: 'g'},
+    'Beef': {qty: 5000, unit: 'g'},
+    'Chicken': {qty: 5000, unit: 'g'},
+    'Flour': {qty: 10000, unit: 'g'},
+    'Coffee Beans': {qty: 2000, unit: 'g'},
+    'Milk': {qty: 4000, unit: 'ml'},
+    'Chocolate': {qty: 1000, unit: 'g'},
+    'Durian Fruit': {qty: 2000, unit: 'g'},
+    'Melon Fruit': {qty: 2000, unit: 'g'},
+    'Bottled Water': {qty: 50, unit: 'pcs'},
+    'Chips': {qty: 30, unit: 'pcs'},
+    'Mismo 190ml': {qty: 40, unit: 'pcs'}
+};
+
+let cart = [];
+let totalSales = 0;
+let transactions = [];
+let activeIntervalMode = 'days';
+let activeSelectedPeriodKey = null;
+
+const todayStr = new Date().toISOString().split('T')[0];
+document.getElementById('posSimulationDate').value = todayStr;
+
+function getActiveDate() {
+    return document.getElementById('posSimulationDate').value || todayStr;
+}
+
+function renderMenu() {
+    const display = document.getElementById('menuDisplay');
+    display.innerHTML = '';
+    for (let cat in menu) {
+        if (Object.keys(menu[cat]).length === 0) continue; // skip categories that have become empty
+        let section = `<div class='category-container' data-cat='${cat.toLowerCase()}'>`;
+        section += `<div class='category-name'>${cat}</div><div class='menu-grid'>`;
+        for (let item in menu[cat]) {
+            section += `<div class='menu-item' onclick='addToCart("${item}", ${menu[cat][item].price}, "${cat}")'>`;
+            section += `<span class='name'>${item}</span><span class='price'>₱${menu[cat][item].price}</span></div>`;
+        }
+        section += '</div></div>';
+        display.innerHTML += section;
+    }
+    renderMenuManagementTable();
+    updateCategoryDatalist();
+}
+
+function filterMenu() {
+    let q = document.getElementById('searchBar').value.toLowerCase();
+    document.querySelectorAll('.menu-item').forEach(el => {
+        el.style.display = el.innerText.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function addToCart(name, price, category) {
+    cart.push({name, price, category});
+    updateCartDisplay();
+}
+
+function updateCartDisplay() {
+    const list = document.getElementById('cartList');
+    list.innerHTML = '';
+    let subtotal = 0;
+    cart.forEach((item, i) => {
+        subtotal += item.price;
+        list.innerHTML += `<li class='cart-item'><span>${item.name}</span><span>₱${item.price} <button class='refund-btn' onclick='cart.splice(${i},1);updateCartDisplay()'>x</button></span></li>`;
+    });
+    document.getElementById('cartTotal').innerText = subtotal;
+}
+
+function checkout() {
+    if (cart.length === 0) return;
+    
+    for (let orderItem of cart) {
+        // Safe check in case item was deleted mid-session
+        if (!menu[orderItem.category] || !menu[orderItem.category][orderItem.name]) continue;
+        
+        let menuItemRecipe = menu[orderItem.category][orderItem.name].ingredients;
+        if (menuItemRecipe) {
+            for (let ingredient in menuItemRecipe) {
+                if (inventory[ingredient]) {
+                    inventory[ingredient].qty -= menuItemRecipe[ingredient];
+                }
+            }
+        }
+    }
+
+    let total = parseInt(document.getElementById('cartTotal').innerText);
+    totalSales += total;
+    
+    transactions.push({
+        id: transactions.length + 1,
+        amount: total,
+        date: getActiveDate(),
+        items: [...cart]
+    });
+    
+    cart = [];
+    updateCartDisplay();
+    renderTransactions();
+    renderInventory();
+    calculateAnalytics();
+}
+
+function renderTransactions() {
+    document.getElementById('salesTotal').innerText = totalSales;
+    const log = document.getElementById('salesLog');
+    log.innerHTML = transactions.map((t, tIdx) => `
+        <div class='transaction-card'>
+            <div class='transaction-header'>
+                <span>Order #${t.id} (${t.date})</span>
+                <span>₱${t.amount}</span>
+            </div>
+            <div style='font-size: 0.85em;'>
+                ${t.items.map((item, iIdx) => `
+                    <div style='display:flex; justify-content:space-between; margin: 2px 0;'>
+                        <span>${item.name}</span>
+                        <span>₱${item.price} <button class='refund-btn' onclick='refundItem(${tIdx}, ${iIdx})'>Refund Item</button></span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).reverse().join('');
+}
+
+function refundItem(tIdx, iIdx) {
+    const item = transactions[tIdx].items[iIdx];
+    
+    // Check if the recipe still exists for calculation fallback
+    if (menu[item.category] && menu[item.category][item.name]) {
+        let menuItemRecipe = menu[item.category][item.name].ingredients;
+        if (menuItemRecipe) {
+            for (let ingredient in menuItemRecipe) {
+                if (inventory[ingredient]) {
+                    inventory[ingredient].qty = Number(inventory[ingredient].qty) + menuItemRecipe[ingredient];
+                }
+            }
+        }
+    }
+    
+    totalSales -= item.price;
+    transactions[tIdx].items.splice(iIdx, 1);
+    transactions[tIdx].amount = transactions[tIdx].items.reduce((sum, item) => sum + item.price, 0);
+    if (transactions[tIdx].items.length === 0) {
+        transactions.splice(tIdx, 1);
+    }
+    renderTransactions();
+    renderInventory();
+    calculateAnalytics();
+}
+
+/* --- DYNAMIC MENU MANAGEMENT UTILITIES --- */
+
+function renderMenuManagementTable() {
+    const body = document.getElementById('menuManagementTableBody');
+    body.innerHTML = '';
+    for (let cat in menu) {
+        for (let item in menu[cat]) {
+            body.innerHTML += `
+                <tr>
+                    <td><span class="trend-badge style='background:#e8f4fd; color:#2c3e50;'">${cat}</span></td>
+                    <td><strong>${item}</strong></td>
+                    <td>₱${menu[cat][item].price}</td>
+                    <td><button class="danger-btn" onclick="removeProductFromMenu('${cat}', '${item}')">Discontinue Item</button></td>
+                </tr>
+            `;
+        }
+    }
+}
+
+function updateCategoryDatalist() {
+    const list = document.getElementById('existingCategories');
+    list.innerHTML = Object.keys(menu).map(cat => `<option value="${cat}">`).join('');
+}
+
+function addNewItemToMenu() {
+    const catInput = document.getElementById('newMenuCategory').value.trim();
+    const nameInput = document.getElementById('newMenuItemName').value.trim();
+    const priceInput = parseFloat(document.getElementById('newMenuPrice').value);
+
+    if (!catInput || !nameInput || isNaN(priceInput) || priceInput < 0) {
+        return alert("Please enter a valid Category, Item Name, and Selling Price!");
+    }
+
+    if (!menu[catInput]) {
+        menu[catInput] = {};
+    }
+
+    if (menu[catInput][nameInput]) {
+        return alert("This item name already exists in this category!");
+    }
+
+    // Register into system structure
+    menu[catInput][nameInput] = { price: priceInput, ingredients: {} };
+
+    // Reset input fields
+    document.getElementById('newMenuItemName').value = '';
+    document.getElementById('newMenuPrice').value = '';
+    
+    alert(`Successfully launched ${nameInput}! You can now assign its ingredients recipe below.`);
+    renderMenu();
+}
+
+function removeProductFromMenu(category, itemName) {
+    if (confirm(`Are you sure you want to stop offering and completely remove "${itemName}" from the system?`)) {
+        delete menu[category][itemName];
+        
+        // Clear active editing targets if deleted item was loaded
+        if (document.getElementById('selectedRecipeItem').value === `${category}||${itemName}`) {
+            document.getElementById('selectedRecipeItem').value = '';
+            document.getElementById('currentlyEditingLabel').innerText = 'No item selected';
+            document.getElementById('recipeBuilder').innerHTML = '';
+            document.getElementById('recipeSearchInput').value = '';
+        }
+        
+        renderMenu();
+    }
+}
+
+function updateInventoryKey(oldKey, newKey) {
+    if (oldKey === newKey) return;
+    inventory[newKey] = inventory[oldKey];
+    delete inventory[oldKey];
+}
+
+function addInventoryItem() {
+    const newKey = "New Item " + (Object.keys(inventory).length + 1);
+    inventory[newKey] = {qty: 0, unit: 'unit'};
+    renderInventory();
+}
+
+function renderInventory() {
+    const body = document.getElementById('inventoryBody');
+    body.innerHTML = Object.keys(inventory).map(key => `
+        <tr>
+            <td><input type='text' class='inventory-input' value='${key}' onchange="updateInventoryKey('${key}', this.value); renderInventory();"></td>
+            <td><input type='number' class='inventory-input' value='${inventory[key].qty}' onchange="inventory['${key}'].qty=Number(this.value)"></td>
+            <td><input type='text' class='inventory-input' value='${inventory[key].unit}' onchange="inventory['${key}'].unit=this.value"></td>
+        </tr>
+    `).join('');
+}
+
+function toggleRecipeList(show) {
+    const options = document.getElementById('recipeMenuOptions');
+    if (show) {
+        renderRecipeOptions();
+        options.style.display = 'block';
+    } else {
+        setTimeout(() => options.style.display = 'none', 200);
+    }
+}
+
+function renderRecipeOptions() {
+    const container = document.getElementById('recipeMenuOptions');
+    const query = document.getElementById('recipeSearchInput').value.toLowerCase();
+    container.innerHTML = '';
+    
+    for (let cat in menu) {
+        for (let item in menu[cat]) {
+            if (item.toLowerCase().includes(query) || cat.toLowerCase().includes(query)) {
+                let div = document.createElement('div');
+                div.className = 'search-option';
+                div.innerText = `[${cat}] ${item}`;
+                div.onclick = () => selectItemForRecipe(cat, item);
+                container.appendChild(div);
+            }
+        }
+    }
+}
+
+function filterRecipeSearch() {
+    renderRecipeOptions();
+}
+
+function selectItemForRecipe(cat, item) {
+    document.getElementById('selectedRecipeItem').value = `${cat}||${item}`;
+    document.getElementById('currentlyEditingLabel').innerText = `Editing: [${cat}] ${item}`;
+    document.getElementById('recipeSearchInput').value = item;
+    toggleRecipeList(false);
+    loadRecipeBuilder(cat, item);
+}
+
+function loadRecipeBuilder(cat, item) {
+    const recipe = menu[cat][item].ingredients || {};
+    const builder = document.getElementById('recipeBuilder');
+    builder.innerHTML = '';
+
+    Object.keys(recipe).forEach(ing => {
+        builder.appendChild(createRecipeRowElement(ing, recipe[ing]));
+    });
+
+    if(Object.keys(recipe).length === 0) {
+        builder.innerHTML = `<p id="emptyRecipeMsg" style="color:#aaa; text-align:center; font-style:italic; margin: 10px 0;">No ingredients assigned.</p>`;
+    }
+}
+
+function createRecipeRowElement(selectedIngredient = '', quantity = 1) {
+    const row = document.createElement('div');
+    row.className = 'recipe-row';
+    let optionsHtml = Object.keys(inventory).map(ing => `
+        <option value="${ing}" ${ing === selectedIngredient ? 'selected' : ''}>${ing} (${inventory[ing].unit})</option>
+    `).join('');
+    row.innerHTML = `
+        <select class="recipe-select" style="flex:2;">${optionsHtml}</select>
+        <input type="number" class="recipe-input" style="flex:1;" value="${quantity}" min="1" step="any">
+        <button class="refund-btn" onclick="this.parentElement.remove();">Remove</button>
+    `;
+    return row;
+}
+
+function addIngredientToRecipeRow() {
+    const msg = document.getElementById('emptyRecipeMsg');
+    if(msg) msg.remove();
+    const builder = document.getElementById('recipeBuilder');
+    const defaultIng = Object.keys(inventory)[0] || '';
+    builder.appendChild(createRecipeRowElement(defaultIng, 1));
+}
+
+function saveRecipe() {
+    const val = document.getElementById('selectedRecipeItem').value;
+    if (!val) return alert("Please select an item first!");
+    const [cat, item] = val.split('||');
+    const rows = document.getElementById('recipeBuilder').querySelectorAll('.recipe-row');
+    let newRecipe = {};
+    rows.forEach(row => {
+        const ing = row.querySelector('.recipe-select').value;
+        const qty = parseFloat(row.querySelector('.recipe-input').value) || 0;
+        if(qty > 0) newRecipe[ing] = qty;
+    });
+    menu[cat][item].ingredients = newRecipe;
+    alert(`Saved recipe for ${item}`);
+}
+
+/* --- HISTORICAL SALES PERIOD ANALYTICS COMPONENT --- */
+
+function getWeekNumber(dateStr) {
+    const d = new Date(dateStr);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `${d.getFullYear()}-W${weekNo}`;
+}
+
+function switchAnalyticsInterval(interval) {
+    activeIntervalMode = interval;
+    document.querySelectorAll('.analytics-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`tab-${interval}`).classList.add('active');
+    
+    const headers = { 'days': 'Date', 'weeks': 'Week Stamp', 'months': 'Month Line', 'years': 'Year' };
+    document.getElementById('periodColumnHeader').innerText = headers[interval];
+    
+    activeSelectedPeriodKey = null;
+    calculateAnalytics();
+    resetDrilldownTable();
+}
+
+function resetDrilldownTable() {
+    document.getElementById('analyticsDrilldownBody').innerHTML = `
+        <tr><td colspan="3" style="text-align: center; color: #aaa; font-style: italic;">Select an interval row from the summary matrix to evaluate its performance components.</td></tr>
+    `;
+    document.getElementById('drilldownTitle').innerText = "Drilldown Analysis Data";
+}
+
+function calculateAnalytics() {
+    let compilation = {};
+    
+    transactions.forEach(tx => {
+        let key = tx.date; 
+        if (activeIntervalMode === 'weeks') key = getWeekNumber(tx.date);
+        else if (activeIntervalMode === 'months') key = tx.date.substring(0, 7); 
+        else if (activeIntervalMode === 'years') key = tx.date.substring(0, 4);  
+        
+        if (!compilation[key]) {
+            compilation[key] = { revenue: 0, orders: 0, transactionRecords: [] };
+        }
+        compilation[key].revenue += tx.amount;
+        compilation[key].orders += 1;
+        compilation[key].transactionRecords.push(tx);
+    });
+    
+    let sortedKeys = Object.keys(compilation).sort();
+    const body = document.getElementById('analyticsSummaryBody');
+    body.innerHTML = '';
+    
+    if(sortedKeys.length === 0) {
+        body.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#aaa;">No processed transactions recorded yet.</td></tr>`;
+        return;
+    }
+    
+    sortedKeys.reverse().forEach((key, index) => {
+        let current = compilation[key];
+        let previousKey = sortedKeys[index + 1]; 
+        let prev = previousKey ? compilation[previousKey] : null;
+        
+        // Revenue Variance
+        let revGrowthHtml = `<span class="trend-badge trend-neutral">--</span>`;
+        if (prev) {
+            let pct = ((current.revenue - prev.revenue) / (prev.revenue || 1)) * 100;
+            if (pct > 0) revGrowthHtml = `<span class="trend-badge trend-up">▲ +${pct.toFixed(1)}%</span>`;
+            else if (pct < 0) revGrowthHtml = `<span class="trend-badge trend-down">▼ ${pct.toFixed(1)}%</span>`;
+        }
+        
+        // Volume Variance
+        let volGrowthHtml = `<span class="trend-badge trend-neutral">--</span>`;
+        if (prev) {
+            let pctVol = ((current.orders - prev.orders) / (prev.orders || 1)) * 100;
+            if (pctVol > 0) volGrowthHtml = `<span class="trend-badge trend-up">▲ +${pctVol.toFixed(1)}%</span>`;
+            else if (pctVol < 0) volGrowthHtml = `<span class="trend-badge trend-down">▼ ${pctVol.toFixed(1)}%</span>`;
+        }
+        
+        let row = document.createElement('tr');
+        row.className = 'clickable-row';
+        if (activeSelectedPeriodKey === key) row.style.background = '#e1f5fe';
+        row.onclick = () => {
+            activeSelectedPeriodKey = key;
+            calculateAnalytics(); 
+            renderPeriodDrilldown(current.transactionRecords, key);
+        };
+        
+        row.innerHTML = `
+            <td><strong>${key}</strong></td>
+            <td>₱${current.revenue.toLocaleString()}</td>
+            <td>${revGrowthHtml}</td>
+            <td>${current.orders} orders</td>
+            <td>${volGrowthHtml}</td>
+        `;
+        body.appendChild(row);
+    });
+    
+    if (activeSelectedPeriodKey && compilation[activeSelectedPeriodKey]) {
+        renderPeriodDrilldown(compilation[activeSelectedPeriodKey].transactionRecords, activeSelectedPeriodKey);
+    }
+}
+
+function renderPeriodDrilldown(filteredTx = null, periodLabel = null) {
+    if (!filteredTx) {
+        if (!activeSelectedPeriodKey) return;
+        periodLabel = activeSelectedPeriodKey;
+        filteredTx = [];
+        transactions.forEach(tx => {
+            let k = tx.date;
+            if (activeIntervalMode === 'weeks') k = getWeekNumber(tx.date);
+            else if (activeIntervalMode === 'months') k = tx.date.substring(0, 7);
+            else if (activeIntervalMode === 'years') k = tx.date.substring(0, 4);
+            if (k === periodLabel) filteredTx.push(tx);
+        });
+    }
+    
+    document.getElementById('drilldownTitle').innerText = `Breakdown Matrix for [${periodLabel}]`;
+    const groupType = document.querySelector('input[name="drilldownGroup"]:checked').value;
+    document.getElementById('drilldownNameHeader').innerText = groupType === 'item' ? 'Product Item Name' : 'Menu Category';
+    
+    let metrics = {};
+    filteredTx.forEach(tx => {
+        tx.items.forEach(item => {
+            let identificationKey = (groupType === 'item') ? item.name : item.category;
+            if (!metrics[identificationKey]) {
+                metrics[identificationKey] = { quantity: 0, revenue: 0 };
+            }
+            metrics[identificationKey].quantity += 1;
+            metrics[identificationKey].revenue += item.price;
+        });
+    });
+    
+    const body = document.getElementById('analyticsDrilldownBody');
+    body.innerHTML = '';
+    
+    let sortedMetrics = Object.keys(metrics).sort((a,b) => metrics[b].revenue - metrics[a].revenue);
+    if(sortedMetrics.length === 0) {
+        body.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#aaa; font-style:italic;">No product distribution data available.</td></tr>`;
+        return;
+    }
+    
+    sortedMetrics.forEach(key => {
+        body.innerHTML += `
+            <tr>
+                <td><strong>${key}</strong></td>
+                <td>${metrics[key].quantity} units</td>
+                <td>₱${metrics[key].revenue.toLocaleString()}</td>
+            </tr>
+        `;
+    });
+}
+
+// Initializing hooks
+renderMenu();
+renderInventory();
+</script>
+</body>
+</html>
+"""
+HTML(full_pos_system_code)
