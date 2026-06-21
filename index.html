@@ -1,781 +1,1027 @@
-full_pos_system_code = """
-<!DOCTYPE html>
 <html>
 <head>
-    <title>Comprehensive Cafeteria POS with Dynamic Menu Editor</title>
+    <title>Multi-Tenant Private Cafeteria POS Dashboard</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 20px; background-color: #f0f2f5; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; }
+        #accessGate {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(44, 62, 80, 0.98); z-index: 9999;
+            display: flex; justify-content: center; align-items: center; color: white;
+        }
+        .gate-box {
+            background: white; color: #2c3e50; padding: 40px; border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; max-width: 450px; width: 90%;
+        }
+        .gate-box h2 { margin-top: 0; color: #2c3e50; }
+        .gate-input { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box; text-align: center; font-weight: bold; }
+        .gate-btn { background: #27ae60; color: white; border: none; width: 100%; padding: 12px; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .gate-btn:hover { background: #219653; }
+        .secondary-btn { background: #34495e; color: white; margin-top: 10px; }
+        .secondary-btn:hover { background: #2c3e50; }
+
+        .report-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.9em; }
+        .report-table th, .report-table td { padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left; }
+        .report-table th { background: #f8f9fa; font-weight: bold; }
+
         .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .container { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .header-date-container { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; }
+        .header-totals-wrapper { display: flex; gap: 10px; }
+        .header-total-label { font-size: 1.0em; font-weight: bold; color: #27ae60; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 4px; }
+        .header-refund-label { font-size: 1.0em; font-weight: bold; color: #e74c3c; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 4px; }
+
+        .container { display: grid; grid-template-columns: 6fr 4fr; gap: 20px; margin-bottom: 20px; }
+
         .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
         #searchBar { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
         .category-container { margin-bottom: 30px; }
-        .category-name { border-bottom: 2px solid #3498db; color: #2c3e50; padding-bottom: 5px; margin-bottom: 15px; font-size: 1.2em; }
+        .category-name { border-bottom: 2px solid #3498db; color: #2c3e50; padding-bottom: 5px; margin-bottom: 15px; font-size: 1.2em; font-weight: bold; }
         .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
         .menu-item { background: #fff; border: 1px solid #e1e4e8; padding: 10px; border-radius: 6px; cursor: pointer; text-align: center; transition: 0.2s; position: relative; }
         .menu-item:hover { background: #e8f4fd; transform: translateY(-2px); border-color: #3498db; }
         .menu-item .name { font-weight: bold; font-size: 0.9em; display: block; margin-bottom: 5px; height: 40px; overflow: hidden; }
         .menu-item .price { color: #27ae60; font-weight: bold; }
-        .cart-list { list-style: none; padding: 0; max-height: 400px; overflow-y: auto; }
-        .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .checkout-btn { background: #27ae60; color: white; border: none; width: 100%; padding: 15px; border-radius: 5px; font-size: 1.1em; cursor: pointer; margin-top: 15px; }
+        .cart-list { list-style: none; padding: 0; margin: 0 0 15px 0; max-height: 200px; overflow-y: auto; background: #f8f9fa; border-radius: 6px; border: 1px dashed #cbd5e1; padding: 5px; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee; background: white; margin-bottom: 4px; border-radius: 4px; font-size: 0.9em; }
+        .checkout-btn { background: #27ae60; color: white; border: none; width: 100%; padding: 15px; border-radius: 5px; font-size: 1.1em; cursor: pointer; margin-top: 15px; font-weight: bold; }
         .refund-btn { color: #e74c3c; background: none; border: 1px solid #e74c3c; padding: 2px 5px; border-radius: 3px; cursor: pointer; margin-left: 10px; font-size: 0.8em; }
-        .transaction-card { border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #fafafa; }
-        .transaction-header { font-weight: bold; border-bottom: 1px solid #ddd; margin-bottom: 5px; display: flex; justify-content: space-between; }
+
+        .notebook-container { display: flex; gap: 10px; background: #e2e8f0; padding: 10px; border-radius: 8px; margin-top: 15px; border: 1px solid #cbd5e1; height: 550px; box-sizing: border-box; overflow: hidden; }
+        .notebook-page { flex: 1; background: #ffffff; border-radius: 6px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; transition: border-color 0.15s, box-shadow 0.15s; height: 100%; box-sizing: border-box; overflow: hidden; }
+        .notebook-page-header { padding: 12px; font-weight: bold; border-bottom: 2px solid #cbd5e1; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; background: #f8f9fa; user-select: none; }
+
+        .notebook-page.active-tab { box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.4); border-color: #3498db; opacity: 1 !important; }
+        .notebook-page.active-tab .notebook-page-header { background: #e8f4fd; color: #2980b9; border-bottom: 2px solid #3498db; }
+        .notebook-page.inactive-tab { opacity: 0.5; background: #f1f5f9; }
+        .notebook-page.inactive-tab:hover { opacity: 0.75; }
+
+        .notebook-content-body { padding: 10px; overflow-y: auto; flex: 1; min-height: 0; box-sizing: border-box; }
+
+        .transaction-card { border: 1px solid #cbd5e1; padding: 12px; margin-top: 12px; border-radius: 6px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: pointer; transition: background 0.15s ease, box-shadow 0.15s ease; position: relative; }
+        .transaction-card:hover { background: #fafbfe; box-shadow: 0 4px 8px rgba(0,0,0,0.08); border-color: #b4c6e7; }
+        .transaction-header { font-weight: bold; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; color: #4a5568; }
+
+        .transaction-totals-sub-row { font-size: 0.85em; display: flex; flex-direction: column; gap: 2px; background: #f8f9fa; padding: 6px; border-radius: 4px; border: 1px solid #edf2f7; margin-bottom: 8px;}
+        .transaction-items-wrapper { display: none; margin-top: 8px; padding-top: 4px; border-top: 1px solid #edf2f7; }
+        .transaction-card.items-expanded .transaction-items-wrapper { display: block; }
+
+        .transaction-item-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dotted #edf2f7; font-size: 0.9em; color: #2d3748; }
+        .transaction-item-row:last-child { border-bottom: none; }
+        .micro-refund-btn { background: #e74c3c; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 0.75em; font-weight: bold; margin-left: 10px; }
+        .micro-refund-btn:hover { background: #c0392b; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
         th { background: #f8f9fa; }
-        .inventory-input, .recipe-select, .recipe-input { width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box; }
-        .add-btn, .save-btn { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 10px; font-size: 14px; }
-        .add-btn:hover { background: #2980b9; }
-        .recipe-row { background: #fdfdfd; border-bottom: 1px solid #f0f0f0; padding: 8px 0; display: flex; gap: 10px; align-items: center; }
-        .recipe-builder-container { max-height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 5px; }
+        #inventoryBody tr { border-bottom: 2px solid #cbd5e1 !important; }
+
+        .inventory-input, .recipe-input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 14px; font-weight: bold; }
+        .inventory-input:focus { border-color: #3498db; outline: none; background: #f8faff; }
+        .add-btn, .save-btn { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 10px; font-size: 14px; font-weight: bold; }
+
+        .recipe-row { background: #fdfdfd; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .recipe-search-sub-input { width: 180px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; }
+        .recipe-unit-sub-input { width: 90px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; }
+
+        .recipe-builder-container { max-height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 5px; background: #fafafa; }
         .searchable-select-container { position: relative; }
         #recipeSearchInput { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px; }
         #recipeMenuOptions { position: absolute; width: 100%; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ddd; z-index: 100; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .search-option { padding: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
         .search-option:hover { background: #f0f7ff; }
-        
-        /* Analytics & Management Style Additions */
         .analytics-tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
         .analytics-tab-btn { padding: 10px 20px; border: none; background: #e1e4e8; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .analytics-tab-btn.active { background: #3498db; color: white; }
-        .analytics-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .analytics-layout { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
         .clickable-row { cursor: pointer; transition: 0.2s; }
         .clickable-row:hover { background: #f0f7ff !important; }
-        .trend-badge { font-weight: bold; padding: 3px 8px; border-radius: 4px; font-size: 0.85em; display: inline-block; }
-        .trend-up { background: #e8f8f5; color: #27ae60; }
-        .trend-down { background: #fdedec; color: #e74c3c; }
-        .trend-neutral { background: #f4f6f7; color: #7f8c8d; }
-        .toggle-container { margin-bottom: 15px; display: flex; gap: 15px; align-items: center; background: #f8f9fa; padding: 10px; border-radius: 5px; }
+        
         .management-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 15px; }
         .management-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        .danger-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
-        .danger-btn:hover { background: #c0392b; }
+        .danger-btn { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+        .storage-banner { background: #e8f8f5; border: 1px solid #27ae60; color: #27ae60; padding: 10px; border-radius: 5px; font-size: 0.9em; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .reset-system-btn { background: #95a5a6; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+        .close-shift-btn { background: #e67e22; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 10px; font-size: 0.9em;}
+        .close-shift-btn:hover { background: #d35400; }
+        .low-stock-alert-row { background-color: #fce8e6 !important; color: #c5221f !important; font-weight: bold; }
+        .low-stock-alert-row input { background-color: #fbebeb !important; color: #c5221f !important; border: 1px solid #f5c2c2 !important; font-weight: bold; }
+        #syncStatusBadge { padding: 4px 10px; border-radius: 20px; font-size: 0.8em; font-weight: bold; background: #f39c12; color: white; display: inline-block; }
+
+        .print-manager-box { background: #fff8f5; border: 1px solid #e67e22; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
+        .print-manager-row { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 8px; border-bottom: 1px solid #fedcd0; border-radius: 4px; margin-bottom: 4px; font-size: 0.9em; }
+
+        /* --- HARDWARE PRINTER STYLING --- */
+        .printer-config-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
+        .printer-config-column { display: flex; flex-direction: column; gap: 15px; }
+        .printer-config-row { display: flex; flex-direction: column; gap: 6px; }
+        .printer-config-row label { font-size: 0.9em; font-weight: bold; color: #2c3e50; }
+        .printer-config-select, .printer-config-input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; box-sizing: border-box; background-color: #fff; color: #1e293b; font-weight: bold; }
+        .printer-switch-container { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+        .switch-toggle-input { width: 44px; height: 22px; appearance: none; background: #cbd5e1; border-radius: 20px; position: relative; cursor: pointer; outline: none; transition: background 0.2s; }
+        .switch-toggle-input:checked { background: #22c55e; }
+        .switch-toggle-input::before { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: transform 0.2s; }
+        .switch-toggle-input:checked::before { transform: translateX(22px); }
+
+        /* --- DRAWER WRAPPERS --- */
+        .drawer-container { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; overflow: hidden; border: 1px solid #e2e8f0; }
+        .drawer-header { background: #f8f9fa; padding: 15px 20px; font-size: 1.15em; font-weight: bold; color: #2c3e50; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; border-bottom: 1px solid #e2e8f0; transition: background 0.2s; }
+        .drawer-header:hover { background: #f1f5f9; }
+        .drawer-arrow { font-size: 0.9em; transition: transform 0.2s ease; color: #64748b; }
+        .drawer-content { padding: 20px; display: none; }
+        .drawer-container.open-drawer .drawer-content { display: block; }
+        .drawer-container.open-drawer .drawer-arrow { transform: rotate(90deg); }
+
+        #paymentRoutingModalContainer, #clipboardBackupModalOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; display: none; justify-content: center; align-items: center; }
+        .modal-inner-card { background: white; padding: 25px; border-radius: 12px; max-width: 420px; width: 85%; box-shadow: 0 4px 25px rgba(0,0,0,0.25); color: #2c3e50; }
+        .payment-choice-btn { width: 100%; padding: 14px; font-size: 1.1em; font-weight: bold; border-radius: 8px; border: 2px solid #cbd5e1; background: #f8f9fa; cursor: pointer; margin-bottom: 10px; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+        .payment-choice-btn:hover { border-color: #3498db; background: #e8f4fd; }
     </style>
 </head>
-<body>
+<body onload="checkAuthOnLoad()">
+
+<div id="clipboardBackupModalOverlay">
+    <div class="modal-inner-card" style="text-align: center;">
+        <h3 id="modalFeedbackTitle" style="color: #27ae60; margin-top: 0;">📋 Receipt Ready</h3>
+        <p style="font-size: 13px; color: #475569; text-align: left;">Bypassed system file download prompt restrictions. Text breakdown structure:</p>
+        <textarea id="clipboardModalTextAreaFeedback" style="width: 100%; height: 180px; font-family: monospace; font-size: 12px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; background: #f8f9fa; resize: none;" readonly></textarea>
+        <button class="gate-btn" style="margin-top: 10px; background: #3498db;" onclick="copyModalReceiptTextToClipboard()">Copy Text to Clipboard</button>
+        <button class="gate-btn" style="margin-top: 5px; background: #2c3e50;" onclick="document.getElementById('clipboardBackupModalOverlay').style.display='none'">Dismiss View</button>
+    </div>
+</div>
+
+<div id="paymentRoutingModalContainer">
+    <div class="modal-inner-card" id="paymentRouteStepSelection">
+        <h3 style="margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 6px;">💳 Settle Transaction [Balance: ₱<span id="paymentModalBalanceTargetLabel">0</span>]</h3>
+        <p style="font-size: 13px; color: #7f8c8d;">Select payment transaction method below:</p>
+        <button class="payment-choice-btn" onclick="initializeCashPaymentInputModule()"><span>💵 Physical Cash Settlement</span><span>&gt;</span></button>
+        <button class="payment-choice-btn" onclick="commitGCashTransactionSettlement()"><span>📱 GCash Electronic Ledger</span><span>&gt;</span></button>
+        <button class="gate-btn" style="background:#95a5a6; margin-top: 10px;" onclick="document.getElementById('paymentRoutingModalContainer').style.display='none'">Cancel Settlement</button>
+    </div>
+    
+    <div class="modal-inner-card" id="paymentRouteStepCashForm" style="display: none;">
+        <h3 style="margin-top:0; color:#27ae60;">💵 Cash Payment Input</h3>
+        <p style="font-size: 13px; margin-bottom: 5px;">Total Balance Required: <strong>₱<span id="cashFormRequiredLabel">0</span></strong></p>
+        <label style="font-size: 12px; font-weight: bold; color: #475569;">Amount Handed Tendered (₱):</label>
+        <input type="number" id="cashTenderedAmountInputField" class="gate-input" placeholder="0.00" onkeyup="calculateTenderChangeValueRefund()" style="margin-top: 5px;">
+        <div style="font-size: 1.3em; font-weight: bold; margin: 10px 0; color:#e67e22;">Tender Return Change: ₱<span id="cashFormChangeLabel">0.00</span></div>
+        <button class="gate-btn" id="cashSubmitSettlementBtn" onclick="commitCashTransactionSettlement()" disabled>Complete Cash Sale</button>
+        <button class="gate-btn secondary-btn" onclick="backToPaymentSelectionModule()">Go Back</button>
+    </div>
+</div>
+
+<div id="accessGate">
+    <div class="gate-box" id="stepLicense">
+        <h2>🔒 Cluster Authentication</h2>
+        <p>Enter your generated <strong>Cloud Account Key</strong> to initialize this terminal node.</p>
+        <input type="text" id="licenseKeyInput" class="gate-input" placeholder="PASTE GENERATED KEY HERE" style="text-transform: uppercase;">
+        <button class="gate-btn" id="activationButton" onclick="validateKeyWithCloud()">Verify Cluster Key</button>
+        <p id="gateMessage" style="font-size: 13px; margin-top: 15px; color: #7f8c8d;"></p>
+    </div>
+
+    <div class="gate-box" id="stepChoice" style="display: none;">
+        <h2>⚙️ Secure Your Profile</h2>
+        <p>Choose your preferred personal security lock layer style for subsequent logins:</p>
+        <button class="gate-btn" onclick="showCredentialSetup('password')">🔤 Standard Password (Keyboard)</button>
+        <button class="gate-btn secondary-btn" onclick="showCredentialSetup('key')">🔢 Numeric Pin Key (Numbers Only)</button>
+    </div>
+
+    <div class="gate-box" id="stepSetupCredentials" style="display: none;">
+        <h2>Create Secret Key</h2>
+        <p>Define your dynamic terminal security value.</p>
+        <div id="setupInputContainer"></div>
+        <button class="gate-btn" onclick="commitPersonalCredentials()">Save & Open Terminal</button>
+    </div>
+
+    <div class="gate-box" id="stepLocalLogin" style="display: none;">
+        <h2>🔓 Local Node Verification</h2>
+        <p>Confirm the credentials configured for this profile node deployment.</p>
+        <div id="loginInputContainer"></div>
+        <button class="gate-btn" onclick="verifyLocalLogin()">Unlock Workspace</button>
+        <button class="gate-btn secondary-btn" onclick="purgeSystemStorage()" style="background:#e74c3c;">De-authorize Cluster Node</button>
+    </div>
+
+    <div class="gate-box" id="stepShiftSummaryReport" style="display: none; text-align: left; max-width: 500px;">
+        <h2>📋 REGISTER SHIFT TOTAL AUDIT</h2>
+        <p id="reportDateLabel" style="color: #7f8c8d; font-size: 0.9em; margin-top:0; margin-bottom: 15px; text-align: center;"></p>
+
+        <div style="background: #f8f9fa; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.95em;">
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-weight:bold;"><span>Gross Shift Revenue:</span><span style="color:#219653;">₱<span id="reportTotalSales">0</span></span></div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ddd; color:#e74c3c;"><span>Shift Voided Refunds:</span><span>₱<span id="reportTotalRefunds">0</span></span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0; font-weight:bold; font-size:1.1em; border-bottom: 2px double #cbd5e1;"><span>Net Returns:</span><span style="color:#2980b9;">₱<span id="reportNetEarnings">0</span></span></div>
+            
+            <div style="margin-top: 10px; font-weight:bold; color: #475569; font-size: 0.85em; text-transform:uppercase;">Audit Breakdown by Channel</div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; color:#27ae60; font-weight:bold;"><span>💰 Total Cash Expected Drawer On-Hand:</span><span>₱<span id="reportCashOnHandAuditSum">0</span></span></div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; color:#9b59b6;"><span>📱 Total Paid Via GCash Ledger:</span><span>₱<span id="reportGcashAuditSum">0</span></span></div>
+        </div>
+
+        <div class="print-ui-choices" style="display: flex; gap: 20px; justify-content: center; background: #f8f9fa; padding: 6px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #cbd5e1;">
+            <label style="font-weight: bold; font-size: 0.9em; cursor: pointer;"><input type="radio" name="shiftReportViewOpt" value="item" checked onchange="renderShiftReportTable()"> By Item</label>
+            <label style="font-weight: bold; font-size: 0.9em; cursor: pointer;"><input type="radio" name="shiftReportViewOpt" value="category" onchange="renderShiftReportTable()"> By Category</label>
+        </div>
+
+        <div style="max-height: 150px; overflow-y: auto; background: #f8f9fa; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px;">
+            <table class="report-table" style="margin: 0;">
+                <tbody id="reportItemizedTableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="action-btn-container" style="display: flex; gap: 10px;">
+            <button class="gate-btn" style="background: #3498db; margin-top: 20px; flex: 1;" onclick="printShiftVoucherReport()">🖨️ Execute Print Log</button>
+            <button class="gate-btn" style="background: #e74c3c; margin-top: 20px; flex: 1;" onclick="finalizeSystemSignOutAndPurgeLocalStorage()">Secure Log Out</button>
+        </div>
+    </div>
+</div>
 
 <div class='header'>
-    <h1>Cafeteria Management Dashboard</h1>
+    <h1>Cafeteria Management Terminal</h1>
+    <div class="header-date-container">
+        <div>
+            <label style="color: white; font-size: 0.85em; margin-right: 8px; font-weight: bold;">Simulation Date:</label>
+            <input type="date" id="posSimulationDate" style="padding: 6px 10px; border-radius: 4px; border: none; font-weight: bold;" onchange="calculateAnalytics(); renderTransactions();">
+        </div>
+        <div class="header-totals-wrapper">
+            <div class="header-total-label">Daily Gross: ₱<span id='salesTotal'>0</span></div>
+            <div class="header-refund-label">Daily Refunds: ₱<span id='refundsTotal'>0</span></div>
+        </div>
+    </div>
+</div>
+
+<div class="storage-banner">
+    <span>☁️ <strong>Firebase Cloud Node:</strong> <span id="syncStatusBadge">Sync Status Offline</span></span>
     <div>
-        <label style="color: white; font-size: 0.8em; margin-right: 10px;">Transaction Date:</label>
-        <input type="date" id="posSimulationDate" style="padding: 5px; border-radius: 4px; border: none;">
-        <span style="margin-left: 20px;">Daily Total: ₱<span id='salesTotal'>0</span></span>
+        <button class="close-shift-btn" onclick="processEndShiftReport()">⚠️ Close Register Shift Audit Summary</button>
+        <button class="reset-system-btn" onclick="purgeSystemStorage()">De-Authorize Terminal</button>
     </div>
 </div>
 
-<input type='text' id='searchBar' placeholder='Search for items or categories...' onkeyup='filterMenu()'>
+<input type='text' id='searchBar' placeholder='Search item offerings or catalog categories...' onkeyup='filterMenu()'>
 
-<div class='container'>
-    <div class='panel'>
-        <div id='menuDisplay'></div>
+<div class="container">
+    <div class="panel">
+        <div id="menuDisplay"></div>
     </div>
 
-    <div class='panel'>
-        <h2>Current Order</h2>
-        <ul id='cartList' class='cart-list'></ul>
-        <div style='font-size: 1.5em; font-weight: bold; margin-top: 20px;'>Total: ₱<span id='cartTotal'>0</span></div>
-        <button class='checkout-btn' onclick='checkout()'>Complete Sale</button>
+    <div class="panel">
+        <h2 id="ledgerHeaderTitle">Historical Ledger Log</h2>
+        <h4 style="margin: 0 0 5px 0; color: #7f8c8d; font-size: 0.85em;">Current Pending Order Stack:</h4>
+        <ul id="cartList" class="cart-list"></ul>
+        <div style='font-size: 1.5em; font-weight: bold; margin-top: 20px;'>Total Balance: ₱<span id='cartTotal'>0</span></div>
+        <button class='checkout-btn' onclick='triggerCheckoutModalPipeline()'>Process Settlement Transaction</button>
 
-        <h2 style='margin-top:40px;'>Transaction Log</h2>
-        <div id='salesLog'></div>
-    </div>
-</div>
+        <div class="notebook-container">
+            <div class="notebook-page active-tab" id="successPageTab" onclick="switchNotebookPage('success')">
+                <div class="notebook-page-header">
+                    <span>🟢 Successful Sales</span>
+                    <span id="notebookSuccessTotal">₱0</span>
+                </div>
+                <div class="notebook-content-body" id="successSalesLog"></div>
+            </div>
 
-<div class='panel' style='border-top: 4px solid #f39c12;'>
-    <h2>Active Menu Offerings & Inventory Registry</h2>
-    <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">Add new items to replace discontinued options, or view the complete list below to completely drop items from rotation.</p>
-    
-    <div class="management-form-grid">
-        <div>
-            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Category Select/Type:</label>
-            <input type="text" id="newMenuCategory" list="existingCategories" class="management-input" placeholder="e.g., Hot Rice Meals">
-            <datalist id="existingCategories"></datalist>
-        </div>
-        <div>
-            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Replacement/New Item Name:</label>
-            <input type="text" id="newMenuItemName" class="management-input" placeholder="e.g., Beef Shawarma Rice">
-        </div>
-        <div>
-            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Selling Price (₱):</label>
-            <input type="number" id="newMenuPrice" class="management-input" min="0" placeholder="180">
-        </div>
-        <div style="display: flex; align-items: flex-end;">
-            <button class="add-btn" style="background:#f39c12; margin:0; width:100%; padding:10px;" onclick="addNewItemToMenu()">+ Launch New Item</button>
-        </div>
-    </div>
-
-    <table style="margin-top: 15px;">
-        <thead>
-            <tr>
-                <th>Category</th>
-                <th>Menu Item Product Name</th>
-                <th>Price</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="menuManagementTableBody"></tbody>
-    </table>
-</div>
-
-<div class='panel'>
-    <h2>Recipe Configuration Panel</h2>
-    <p style="font-size: 0.9em; color: #666;">Search and select a menu item to edit its recipe.</p>
-    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
-        <div class="searchable-select-container">
-            <label style="font-weight: bold; display:block; margin-bottom: 5px;">1. Search Menu Item:</label>
-            <input type="text" id="recipeSearchInput" placeholder="Type to search..." onfocus="toggleRecipeList(true)" onkeyup="filterRecipeSearch()">
-            <div id="recipeMenuOptions"></div>
-            <input type="hidden" id="selectedRecipeItem" value="">
-            <div id="currentlyEditingLabel" style="margin-top:10px; font-style: italic; color: #3498db; font-size: 0.9em;">No item selected</div>
-        </div>
-        <div>
-            <label style="font-weight: bold; display:block; margin-bottom: 5px;">2. Edit Ingredients Recipe:</label>
-            <div id="recipeBuilder" class="recipe-builder-container"></div>
-            <button class="add-btn" style="margin-top:10px; background:#27ae60;" onclick="addIngredientToRecipeRow()">+ Add Ingredient Row</button>
-            <button class="save-btn" style="margin-top:10px; float: right;" onclick="saveRecipe()">Save Recipe</button>
+            <div class="notebook-page inactive-tab" id="refundPageTab" onclick="switchNotebookPage('refund')">
+                <div class="notebook-page-header">
+                    <span>🔴 Refund Sales</span>
+                    <span id="notebookRefundTotal">₱0</span>
+                </div>
+                <div class="notebook-content-body" id="refundSalesLog" style="display: none;"></div>
+            </div>
         </div>
     </div>
 </div>
 
-<div class='panel'>
-    <h2>Stock & Inventory Control</h2>
-    <button class='add-btn' onclick='addInventoryItem()'>+ Add New Stock Ingredient</button>
-    <table>
-        <thead><tr><th>Ingredient/Item Name</th><th>Quantity</th><th>Unit</th></tr></thead>
-        <tbody id='inventoryBody'></tbody>
-    </table>
-</div>
-
-<div class='panel' style='background: #fff; border-top: 4px solid #3498db;'>
-    <h2>Advanced Sales Performance & Auditing Matrix</h2>
-    <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">Click on a timeline row below to display its itemized units and category performance breakdowns.</p>
-    
-    <div class="analytics-tabs">
-        <button class="analytics-tab-btn active" id="tab-days" onclick="switchAnalyticsInterval('days')">Daily Sales</button>
-        <button class="analytics-tab-btn" id="tab-weeks" onclick="switchAnalyticsInterval('weeks')">Weekly Sales</button>
-        <button class="analytics-tab-btn" id="tab-months" onclick="switchAnalyticsInterval('months')">Monthly Sales</button>
-        <button class="analytics-tab-btn" id="tab-years" onclick="switchAnalyticsInterval('years')">Annual Sales</button>
+<div class="drawer-container" id="drawerPrinter">
+    <div class="drawer-header" onclick="toggleDrawer('drawerPrinter')">
+        <span>🖨️ Hardware Printer Configurations Manager</span>
+        <span class="drawer-arrow">&#9654;</span>
     </div>
+    <div class="drawer-content">
+        <div class="printer-config-section">
+            <div class="printer-config-column">
+                <div class="printer-config-row">
+                    <label>System Print Framework Type</label>
+                    <select id="printerSystemTypeSwitchDropdown" class="printer-config-select" onchange="syncPrinterProfileProperties()">
+                        <option value="intent">Legacy Intent Payload Generator (Direct Print Redirect App)</option>
+                        <option value="modal">On-Screen Clean Receipt Window (No Storage Prompts)</option>
+                        <option value="native">Native Layout Overlay Engine (Direct Web Browser Print)</option>
+                    </select>
+                </div>
+                <div class="printer-config-row">
+                    <label>Name</label>
+                    <input type="text" id="printerNodeNameField" class="printer-config-input" value="Cafe Amara Davao" onchange="syncPrinterProfileProperties()">
+                </div>
+                <div class="printer-config-row">
+                    <label>Printer Model Identity Profile</label>
+                    <select id="printerModelDropdown" class="printer-config-select" onchange="syncPrinterProfileProperties(); handleModelChangeSelection();">
+                        <option value="xprinter">Xprinter XP-58IIH Series (Standard Cafe Node)</option>
+                        <option value="epson">Epson POS Standard Core</option>
+                        <option value="star">Star Micronics 58mm</option>
+                        <option value="other">Other Model</option>
+                    </select>
+                </div>
+                
+                <div class="printer-config-row">
+                    <label>Interface Type Mapping</label>
+                    <select id="printerInterfaceTypeDropdown" class="printer-config-select" onchange="toggleHardwareInterfaceViewMode(); syncPrinterProfileProperties();">
+                        <option value="usb">USB Wired Connection Port</option>
+                        <option value="wifi">Wi-Fi Network Node Address</option>
+                        <option value="bluetooth">Bluetooth Wireless Core Link</option>
+                    </select>
+                </div>
 
-    <div class="analytics-layout">
-        <div>
-            <h3>Interval Summary Logs</h3>
-            <table style="margin-top: 10px;">
-                <thead>
-                    <tr>
-                        <th id="periodColumnHeader">Date Interval</th>
-                        <th>Revenue</th>
-                        <th>PoP Growth</th>
-                        <th>Orders Count</th>
-                        <th>Volume Shift</th>
-                    </tr>
-                </thead>
-                <tbody id="analyticsSummaryBody">
-                    <tr><td colspan="5" style="text-align:center; color:#aaa;">No transactions processed yet.</td></tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 id="drilldownTitle">Drilldown Analysis Data</h3>
-                <div class="toggle-container" style="margin: 0; padding: 5px 10px;">
-                    <label style="font-weight: bold; font-size: 0.85em;">Group Mode:</label>
-                    <label style="font-size: 0.85em;"><input type="radio" name="drilldownGroup" value="item" checked onchange="renderPeriodDrilldown()"> By Item</label>
-                    <label style="font-size: 0.85em;"><input type="radio" name="drilldownGroup" value="category" onchange="renderPeriodDrilldown()"> By Category</label>
+                <div class="printer-config-row" id="bluetoothHardwareWrapperPanel" style="display: none;">
+                    <label>Bluetooth Hardware Endpoint Target</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="printerBluetoothField" class="printer-config-input" value="Bluetooth_Thermal_Printer_XP58" style="flex: 1;" onchange="syncPrinterProfileProperties()">
+                        <button class="add-btn" style="background: #34495e; margin: 0; padding: 0 15px; font-size: 0.85em; border-radius: 4px;" onclick="simulateBluetoothDeviceHardwareLookup()">SCAN HARDWARE</button>
+                    </div>
+                </div>
+
+                <div class="printer-config-row">
+                    <label>Paper width layout mapping</label>
+                    <select id="printerPaperWidthDropdown" class="printer-config-select" onchange="syncPrinterProfileProperties()">
+                        <option value="58mm">58 mm (Standard Receipt)</option>
+                        <option value="80mm">80 mm (Wide Sheet Ledger)</option>
+                    </select>
                 </div>
             </div>
-            <table style="margin-top: 10px;">
-                <thead>
-                    <tr>
-                        <th id="drilldownNameHeader">Line Identity Target</th>
-                        <th>Quantity Sold</th>
-                        <th>Revenue Generated</th>
-                    </tr>
-                </thead>
-                <tbody id="analyticsDrilldownBody">
-                    <tr><td colspan="3" style="text-align: center; color: #aaa; font-style: italic;">Select an interval row from the summary matrix to evaluate its performance components.</td></tr>
-                </tbody>
-            </table>
+
+            <div class="printer-config-column">
+                <div style="font-weight: bold; color: #2c3e50; font-size: 0.9em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 10px;">Advanced execution switches</div>
+                
+                <div class="printer-switch-container">
+                    <label style="font-size: 0.9em; font-weight: bold; color: #2c3e50;">Allow Receipt Log Spooling</label>
+                    <input type="checkbox" id="toggleReceiptPrintFunction" class="switch-toggle-input" checked onchange="syncPrinterProfileProperties()">
+                </div>
+                <div class="printer-switch-container">
+                    <label style="font-size: 0.9em; font-weight: bold; color: #2c3e50;">Auto-Fire Spool On Complete Order Settlement</label>
+                    <input type="checkbox" id="toggleAutoPrintExecution" class="switch-toggle-input" checked onchange="syncPrinterProfileProperties()">
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 40px;">
+                    <button class="add-btn" style="background: #1e293b; margin:0; padding: 12px; border-radius: 4px;" onclick="executeDiagnosticHardwareTestPrint()">🖨️ RUN COMPATIBILITY PRINT TEST</button>
+                    <button class="danger-btn" style="border-radius: 4px; font-weight: bold; padding: 12px;" onclick="purgeConfiguredPrinterHardwareProfile()">RESET HARDWARE DEFAULT</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
+<div class="drawer-container" id="drawerMenuMatrix">
+    <div class="drawer-header" onclick="toggleDrawer('drawerMenuMatrix')">
+        <span>🔸 Active Menu Offerings Setup Matrix</span>
+        <span class="drawer-arrow">&#9654;</span>
+    </div>
+    <div class="drawer-content">
+        <div class="management-form-grid">
+            <div>
+                <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Category Label Target:</label>
+                <input type="text" id="newMenuCategory" list="existingCategories" class="management-input" placeholder="e.g., Short Order Meals">
+            </div>
+            <div>
+                <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Menu Item Identity:</label>
+                <input type="text" id="newMenuItemName" class="management-input" placeholder="e.g., Sisig Meal">
+            </div>
+            <div>
+                <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:4px;">Unit Base Price (₱):</label>
+                <input type="number" id="newMenuPrice" class="management-input" min="0" placeholder="120">
+            </div>
+            <div style="display: flex; align-items: flex-end;">
+                <button class="add-btn" style="background:#f39c12; margin:0; width:100%; padding:10px;" onclick="addNewItemToMenu()">+ Deploy Item Identity</button>
+            </div>
+        </div>
+        <table>
+            <thead><tr><th>Category Mapping</th><th>Menu Item Identifier</th><th>Selling Value</th><th>Terminal Control</th></tr></thead>
+            <tbody id="menuManagementTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="drawer-container" id="drawerRecipe">
+    <div class="drawer-header" onclick="toggleDrawer('drawerRecipe')">
+        <span>💜 Ingredient Recipe Deployment Panel</span>
+        <span class="drawer-arrow">&#9654;</span>
+    </div>
+    <div class="drawer-content">
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+            <div class="searchable-select-container">
+                <label style="font-weight: bold; display:block; margin-bottom: 5px;">1. Search Item Mapping:</label>
+                <input type="text" id="recipeSearchInput" placeholder="Filter profiles..." onfocus="toggleRecipeList(true)" onkeyup="filterRecipeSearch()">
+                <div id="recipeMenuOptions"></div>
+                <input type="hidden" id="selectedRecipeItem" value="">
+                <div id="currentlyEditingLabel" style="margin-top:10px; font-style: italic; color: #3498db; font-size: 0.9em;">No item identity chosen</div>
+            </div>
+            <div>
+                <label style="font-weight: bold; display:block; margin-bottom: 5px;">2. Structure Resource Weights:</label>
+                <div id="recipeBuilder" class="recipe-builder-container"></div>
+                <button class="add-btn" style="margin-top:10px; background:#27ae60;" onclick="addIngredientToRecipeRow()">+ Add Ingredient Component Line</button>
+                <button class="save-btn" style="margin-top:10px; float: right;" onclick="saveRecipe()">Commit Structural Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="drawer-container" id="drawerInventory">
+    <div class="drawer-header" onclick="toggleDrawer('drawerInventory')">
+        <span>🍃 Stock Inventory Management Engine</span>
+        <span class="drawer-arrow">&#9654;</span>
+    </div>
+    <div class="drawer-content">
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <button class='add-btn' style="background:#1abc9c; margin-bottom: 0;" onclick="addInventoryItemInline()">+ Inject Fresh Resource Material Track</button>
+            <button class='add-btn' style="background:#e67e22; margin-bottom: 0;" onclick="openLowStockPrintManager()">⚠️ Manage Low Stock Print List</button>
+        </div>
+
+        <div id="printManagerSection" class="print-manager-box">
+            <h3 style="margin-top: 0; color: #e67e22;">🛒 Setup Low Stock Shopping Ticket</h3>
+            <p style="font-size: 0.85em; color: #7f8c8d; margin-bottom: 15px;">Review target queue checklist matrix profiles.</p>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center;">
+                <label style="font-size: 0.85em; font-weight: bold; color: #2c3e50;">Quick-Inject Row:</label>
+                <input type="text" id="printManagerManualLookup" list="allInventoryIngredientsDatalist" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; width: 200px;" placeholder="Select material name...">
+                <button class="add-btn" style="background: #34495e; padding: 6px 12px; margin: 0; font-size: 0.85em;" onclick="injectItemIntoPrintQueue()">+ Add into Queue</button>
+            </div>
+
+            <div id="printManagerQueueList" style="max-height: 250px; overflow-y: auto; background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px;"></div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 15px; justify-content: flex-end;">
+                <button class="add-btn" style="background: #95a5a6; margin: 0; padding: 8px 15px;" onclick="document.getElementById('printManagerSection').style.display='none'">Close Dashboard</button>
+                <button class="add-btn" style="background: #e67e22; margin: 0; padding: 8px 20px;" onclick="executeSelectedQueuePrint()">🖨️ Print Custom Ticket</button>
+            </div>
+        </div>
+
+        <table>
+            <thead><tr><th>Ingredient Resource Name</th><th>Physical Volumetric Quantity</th><th>Metric Measurement Unit</th></tr></thead>
+            <tbody id='inventoryBody'></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="drawer-container" id="drawerAnalytics">
+    <div class="drawer-header" onclick="toggleDrawer('drawerAnalytics')">
+        <span>📈 Advanced Operational Analytics Suite</span>
+        <span class="drawer-arrow">&#9654;</span>
+    </div>
+    <div class="drawer-content">
+        <div class="analytics-tabs">
+            <button class="analytics-tab-btn active" id="tab-days" onclick="switchAnalyticsInterval('days')">Daily Timeline</button>
+            <button class="analytics-tab-btn" id="tab-weeks" onclick="switchAnalyticsInterval('weeks')">Weekly Segments</button>
+            <button class="analytics-tab-btn" id="tab-months" onclick="switchAnalyticsInterval('months')">Monthly Intervals</button>
+            <button class="analytics-tab-btn" id="tab-years" onclick="switchAnalyticsInterval('years')">Annual Baselines</button>
+        </div>
+        <div class="analytics-layout">
+            <div>
+                <h3>Operational Timeline Log Matrix</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="periodColumnHeader">Date Baseline</th>
+                            <th>Gross Revenue</th>
+                            <th>Refund Volume</th>
+                            <th>Net Returns</th>
+                            <th>PoP Financial Shifting</th>
+                            <th>Settlements</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analyticsSummaryBody"></tbody>
+                </table>
+            </div>
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 id="drilldownTitle">Itemized Structural Drilldown</h3>
+                    <div class="toggle-container" style="margin: 0; padding: 5px 10px;">
+                        <label style="font-size: 0.85em;"><input type="radio" name="drilldownGroup" value="item" checked onchange="renderPeriodDrilldown()"> Itemized</label>
+                        <label style="font-size: 0.85em;"><input type="radio" name="drilldownGroup" value="category" onchange="renderPeriodDrilldown()"> Category Segment</label>
+                    </div>
+                </div>
+                <table>
+                    <thead><tr><th id="drilldownNameHeader">Component Line Label</th><th>Units Dispatched</th><th>Yield Value Generated</th></tr></thead>
+                    <tbody id="analyticsDrilldownBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<datalist id="allInventoryIngredientsDatalist"></datalist>
+<datalist id="existingCategories"></datalist>
+<datalist id="unitsDatalist">
+    <option value="g"><option value="kg"><option value="ml"><option value="L"><option value="pcs"><option value="packs">
+</datalist>
+
 <script>
-const menu = {
-    'Blended': {
-        'Durian Blend': { price: 195, ingredients: { 'Durian Fruit': 100 } },
-        'Melon Blend': { price: 150, ingredients: { 'Melon Fruit': 100 } },
-        'Ube Blend': { price: 185, ingredients: { 'Flour': 10 } }
-    },
-    'Bottled water': { 'Bottled Water': { price: 20, ingredients: { 'Bottled Water': 1 } } },
-    'Chip snacks': { 'Chips': { price: 50, ingredients: { 'Chips': 1 } } },
-    'Coffee-Based': {
-        'Cafe Americano': { price: 110, ingredients: { 'Coffee Beans': 18, 'Water Cup': 1 } },
-        'Cafe Latte': { price: 125, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } },
-        'Cafe Mocha': { price: 140, ingredients: { 'Coffee Beans': 18, 'Milk': 150, 'Chocolate': 30 } },
-        'Cappuccino Hot': { price: 125, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } },
-        'Hazelnut Latte': { price: 135, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } },
-        'Ice Caramel Macchiato': { price: 140, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } },
-        'Ice Spanish Latte': { price: 140, ingredients: { 'Coffee Beans': 18, 'Milk': 150 } }
-    },
-    'Desserts': {
-        'Halong Amara': { price: 160, ingredients: {} },
-        'Mais Con Yelo': { price: 155, ingredients: {} }
-    },
-    'Floral spring roll': { 'Spring Roll': { price: 150, ingredients: { 'Flour': 50 } } },
-    'Fruit mix': { 'Fruit Mix': { price: 80, ingredients: {} } },
-    'Fruit Soda': {
-        'Blueberry Cola Smash': { price: 60, ingredients: {} },
-        'Blueberry Soda': { price: 60, ingredients: {} },
-        'Green Apple Soda': { price: 55, ingredients: {} },
-        'Lemon Soda': { price: 55, ingredients: {} },
-        'Lychee Soda': { price: 55, ingredients: {} },
-        'Pea Tea Lemonade': { price: 55, ingredients: {} },
-        'Strawberry Blossom': { price: 55, ingredients: {} },
-        'Taro with Soda Smash': { price: 60, ingredients: {} }
-    },
-    'Hot Rice Meals': {
-        'Beef Tapa': { price: 195, ingredients: { 'Beef': 150, 'Rice': 1 } },
-        'Beef Tapa w/ Egg & Drink': { price: 185, ingredients: { 'Beef': 120, 'Rice': 1, 'Egg': 1 } },
-        'Burger Patty w/ Egg & Drink': { price: 150, ingredients: { 'Egg': 1, 'Rice': 1 } },
-        'Chicken Tocino w/ Egg & Drink': { price: 150, ingredients: { 'Chicken': 150, 'Egg': 1, 'Rice': 1 } },
-        'Corned Beef': { price: 180, ingredients: { 'Rice': 1 } },
-        'Egg': { price: 15, ingredients: { 'Egg': 1 } },
-        'Fried Beef Siomai w/ Rice': { price: 130, ingredients: { 'Beef': 60, 'Rice': 1 } },
-        'Hungarian Sausage': { price: 180, ingredients: { 'Rice': 1 } },
-        'Longganisa w/ Rice & Egg': { price: 190, ingredients: { 'Rice': 1, 'Egg': 1 } },
-        'Pork Chorizo w/ Rice': { price: 150, ingredients: { 'Rice': 1 } },
-        'Pork Tocino w/ Egg': { price: 150, ingredients: { 'Egg': 1, 'Pork': 100 } },
-        'Rice': { price: 30, ingredients: { 'Rice': 1 } },
-        'Spam': { price: 170, ingredients: { 'Rice': 1 } }
-    },
-    'Ice Cream': { 'Melon Ice Cream': { price: 40, ingredients: {} } },
-    'Pastries': {
-        'Assorted Pastries': { price: 50, ingredients: { 'Flour': 100 } },
-        'Blueberry Muffins': { price: 60, ingredients: { 'Flour': 120 } },
-        'Cheese Roll': { price: 40, ingredients: { 'Flour': 80 } },
-        'Choco Chip Cookies': { price: 50, ingredients: { 'Flour': 50 } },
-        'Cinnamon Rolls': { price: 60, ingredients: { 'Flour': 100 } },
-        'Double Chocolate Muffin': { price: 60, ingredients: { 'Flour': 120 } },
-        'Ensaymada Biscoff': { price: 55, ingredients: { 'Flour': 100 } },
-        'Ensaymada Cream Cheese': { price: 55, ingredients: { 'Flour': 100 } },
-        'Ensaymada Dulce de Leche': { price: 55, ingredients: { 'Flour': 100 } },
-        "Rosario's Durian Bites": { price: 125, ingredients: {} },
-        "Rosario's Durian Dragee": { price: 195, ingredients: {} },
-        "Rosario's Jackfruit Bites": { price: 125, ingredients: {} },
-        "Rosario's Jackfruit Dragee": { price: 195, ingredients: {} },
-        "Rosario's Mango Dragee": { price: 195, ingredients: {} },
-        "Rosario's Marang Dragee": { price: 195, ingredients: {} },
-        'S&R Cream cheese': { price: 50, ingredients: {} },
-        'SR Dulce': { price: 50, ingredients: {} }
-    },
-    'Penne Pasta Spag': { 'Penne Pasta Spaghetti': { price: 150, ingredients: { 'Flour': 150 } } },
-    'Snacks': {
-        'Beef Burger w/ Sour Cream': { price: 195, ingredients: { 'Beef': 100 } },
-        'B1T1 Classic Burger': { price: 195, ingredients: { 'Beef': 200 } },
-        'Chicken Duo Fries': { price: 165, ingredients: { 'Chicken': 200 } },
-        'Garlic Angus Beef Burger': { price: 169, ingredients: { 'Beef': 120 } },
-        'Prawn with Fries': { price: 100, ingredients: {} },
-        'Sour Cream Fries': { price: 75, ingredients: {} }
-    },
-    'Softdrinks': { 'Mismo 190ml': { price: 20, ingredients: { 'Mismo 190ml': 1 } } },
-    'Sundae': { 'Chocolate Sundae': { price: 80, ingredients: { 'Chocolate': 50 } } }
-};
+const FIREBASE_BASE_URL = "https://terminal-control-suite-default-rtdb.firebaseio.com/";
 
-let inventory = {
-    'Rice': {qty: 100, unit: 'servings'},
-    'Egg': {qty: 50, unit: 'pcs'},
-    'Pork': {qty: 3000, unit: 'g'},
-    'Beef': {qty: 5000, unit: 'g'},
-    'Chicken': {qty: 5000, unit: 'g'},
-    'Flour': {qty: 10000, unit: 'g'},
-    'Coffee Beans': {qty: 2000, unit: 'g'},
-    'Milk': {qty: 4000, unit: 'ml'},
-    'Chocolate': {qty: 1000, unit: 'g'},
-    'Durian Fruit': {qty: 2000, unit: 'g'},
-    'Melon Fruit': {qty: 2000, unit: 'g'},
-    'Bottled Water': {qty: 50, unit: 'pcs'},
-    'Chips': {qty: 30, unit: 'pcs'},
-    'Mismo 190ml': {qty: 40, unit: 'pcs'}
-};
-
-let cart = [];
-let totalSales = 0;
-let transactions = [];
-let activeIntervalMode = 'days';
-let activeSelectedPeriodKey = null;
+let menu = {}, inventory = {}, transactions = [], totalSales = 0, cart = [], activeIntervalMode = 'days', activeSelectedPeriodKey = null, currentActiveLicenseKey = "";
+let temporarySetupType = "";
+let inventoryOrder = [];
+let currentNotebookActivePage = 'success';
+let expandedReceiptCardIds = new Set();
+let printQueueListArray = [];
 
 const todayStr = new Date().toISOString().split('T')[0];
 document.getElementById('posSimulationDate').value = todayStr;
+function getActiveDate() { return document.getElementById('posSimulationDate').value || todayStr; }
 
-function getActiveDate() {
-    return document.getElementById('posSimulationDate').value || todayStr;
+function toggleDrawer(id) {
+    const el = document.getElementById(id);
+    if(el) { el.classList.toggle('open-drawer'); }
+}
+
+function toggleHardwareInterfaceViewMode() {
+    const selectedMode = document.getElementById("printerInterfaceTypeDropdown").value;
+    const btWrapper = document.getElementById("bluetoothHardwareWrapperPanel");
+    if(selectedMode === "bluetooth") {
+        btWrapper.style.display = "block";
+    } else {
+        btWrapper.style.display = "none";
+    }
+}
+
+function handleModelChangeSelection() {
+    const selectedModel = document.getElementById("printerModelDropdown").value;
+    if(selectedModel === "xprinter") {
+        document.getElementById("printerBluetoothField").value = "XP-58IIH_Thermal_Node_Davao";
+    }
+}
+
+function updateSyncBadge(status, color) {
+    const b = document.getElementById('syncStatusBadge');
+    if(b) { b.innerText = status; b.style.backgroundColor = color; }
+}
+
+async function pushDataToCloud() {
+    if (!currentActiveLicenseKey) return;
+    updateSyncBadge("Syncing...", "#f39c12");
+    let usageCount = transactions.length;
+    const payload = { menu, inventory, inventoryOrder, transactions, totalSales, usage_count: usageCount, last_sync: new Date().toISOString() };
+    try {
+        await fetch(`${FIREBASE_BASE_URL}/licenses/${currentActiveLicenseKey}/workspace_data.json`, { method: 'PUT', body: JSON.stringify(payload) });
+        updateSyncBadge("Cloud Synced", "#27ae60");
+    } catch (err) { updateSyncBadge("Local Mode Only", "#7f8c8d"); }
+}
+
+async function pullDataFromCloud() {
+    if (!currentActiveLicenseKey) return;
+    updateSyncBadge("Syncing with Cluster...", "#3498db");
+    try {
+        const res = await fetch(`${FIREBASE_BASE_URL}/licenses/${currentActiveLicenseKey}/workspace_data.json`);
+        if (res.ok) {
+            const d = await res.json();
+            if(d) {
+                menu = d.menu || {};
+                inventory = d.inventory || {};
+                inventoryOrder = d.inventoryOrder || Object.keys(inventory);
+                transactions = d.transactions || [];
+                totalSales = d.totalSales !== undefined ? d.totalSales : 0;
+                updateSyncBadge("Active Cluster Node", "#27ae60");
+            }
+        }
+    } catch(e) { updateSyncBadge("Network Offline", "#e74c3c"); }
+    updateGlobalIngredientsDatalist(); renderMenu(); renderInventory(); renderTransactions(); calculateAnalytics(); updateCartDisplay(); loadSavedPrinterDriverPresets();
+}
+
+/* --- THE REMASTERED ZERO-PERMISSION INTENT / AUTOMATIC FILE DOWN-STREAM ENGINE --- */
+function routePayloadToOutputDriver(plainTextReceipt, formattedHtmlReceipt) {
+    const activeFramework = document.getElementById("printerSystemTypeSwitchDropdown").value;
+    
+    if (activeFramework === "intent") {
+        const encodedDataStream = encodeURIComponent(plainTextReceipt);
+        const printIntentUri = "intent://data:text/plain;charset=utf-8," + encodedDataStream + "#Intent;scheme=data;type=text/plain;action=android.intent.action.VIEW;end";
+        window.location.href = printIntentUri;
+    } else if (activeFramework === "modal") {
+        document.getElementById("clipboardModalTextAreaFeedback").value = plainTextReceipt;
+        document.getElementById("modalFeedbackTitle").innerText = "📋 Receipt Generated";
+        document.getElementById("clipboardBackupModalOverlay").style.display = "flex";
+    } else if (activeFramework === "native") {
+        try {
+            const hiddenIframe = document.createElement("iframe");
+            hiddenIframe.style.position = "fixed"; hiddenIframe.style.width = "0"; hiddenIframe.style.height = "0"; hiddenIframe.style.border = "none";
+            document.body.appendChild(hiddenIframe);
+            const doc = hiddenIframe.contentWindow.document;
+            doc.open(); doc.write(formattedHtmlReceipt); doc.close();
+            hiddenIframe.contentWindow.focus(); hiddenIframe.contentWindow.print();
+            setTimeout(() => { document.body.removeChild(hiddenIframe); }, 3000);
+        } catch(e) {
+            document.getElementById("clipboardModalTextAreaFeedback").value = plainTextReceipt;
+            document.getElementById("clipboardBackupModalOverlay").style.display = "flex";
+        }
+    }
+}
+
+function copyModalReceiptTextToClipboard() {
+    const txtArea = document.getElementById("clipboardModalTextAreaFeedback");
+    txtArea.select();
+    txtArea.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(txtArea.value);
+    alert("📋 Text copied cleanly to system memory clipboard layer!");
+}
+
+function compileHtmlContainerWrapper(bodyContentText) {
+    const storeTitle = document.getElementById("printerNodeNameField").value.trim().toUpperCase();
+    const paperWidth = document.getElementById("printerPaperWidthDropdown").value;
+    const calcWidthCss = paperWidth === "58mm" ? "200px" : "290px";
+    return `<html><head><style>body{width:${calcWidthCss};margin:0;padding:4px;font-family:'Courier New',monospace;font-size:11px;color:#000;background:#fff;}.c{text-align:center;}.b{font-weight:bold;}.d{border-top:1px dashed #000;margin:4px 0;}.f{display:flex;justify-content:space-between;}</style></head><body><div class="c b">${storeTitle}</div><div class="d"></div>${bodyContentText}<div class="d"></div><div class="c">* TRADING NODE RECEIPT *</div><br><br></body></html>`;
+}
+
+function simulateBluetoothDeviceHardwareLookup() {
+    const inputField = document.getElementById("printerBluetoothField");
+    inputField.value = "Scanning local Bluetooth bands...";
+    setTimeout(() => { inputField.value = "XP-58IIH_Thermal_Node_Davao"; syncPrinterProfileProperties(); alert("✅ Bluetooth link established to device target node structural registry."); }, 800);
+}
+
+function loadSavedPrinterDriverPresets() {
+    document.getElementById("printerNodeNameField").value = localStorage.getItem('pos_driver_name_val') || "Cafe Amara Davao";
+    document.getElementById("printerPaperWidthDropdown").value = localStorage.getItem('pos_driver_width_selection') || "58mm";
+    document.getElementById("printerSystemTypeSwitchDropdown").value = localStorage.getItem('pos_driver_framework_type') || "intent";
+    document.getElementById("printerModelDropdown").value = localStorage.getItem('pos_driver_model_identity') || "xprinter";
+    document.getElementById("printerInterfaceTypeDropdown").value = localStorage.getItem('pos_driver_interface_type') || "usb";
+    document.getElementById("printerBluetoothField").value = localStorage.getItem('pos_driver_bt_address') || "Bluetooth_Thermal_Printer_XP58";
+    let savedAuto = localStorage.getItem('pos_driver_auto_print');
+    let savedBill = localStorage.getItem('pos_driver_bill_toggle');
+    if(savedAuto !== null) document.getElementById("toggleAutoPrintExecution").checked = (savedAuto === "true");
+    if(savedBill !== null) document.getElementById("toggleReceiptPrintFunction").checked = (savedBill === "true");
+    toggleHardwareInterfaceViewMode();
+}
+
+function syncPrinterProfileProperties() {
+    localStorage.setItem('pos_driver_name_val', document.getElementById("printerNodeNameField").value.trim());
+    localStorage.setItem('pos_driver_width_selection', document.getElementById("printerPaperWidthDropdown").value);
+    localStorage.setItem('pos_driver_framework_type', document.getElementById("printerSystemTypeSwitchDropdown").value);
+    localStorage.setItem('pos_driver_model_identity', document.getElementById("printerModelDropdown").value);
+    localStorage.setItem('pos_driver_interface_type', document.getElementById("printerInterfaceTypeDropdown").value);
+    localStorage.setItem('pos_driver_bt_address', document.getElementById("printerBluetoothField").value.trim());
+    localStorage.setItem('pos_driver_auto_print', document.getElementById("toggleAutoPrintExecution").checked);
+    localStorage.setItem('pos_driver_bill_toggle', document.getElementById("toggleReceiptPrintFunction").checked);
+}
+
+function purgeConfiguredPrinterHardwareProfile() {
+    if(confirm("Purge configurations manager defaults?")) {
+        localStorage.removeItem('pos_driver_name_val'); localStorage.removeItem('pos_driver_width_selection');
+        localStorage.removeItem('pos_driver_framework_type'); localStorage.removeItem('pos_driver_model_identity');
+        localStorage.removeItem('pos_driver_interface_type'); localStorage.removeItem('pos_driver_bt_address'); 
+        localStorage.removeItem('pos_driver_auto_print'); localStorage.removeItem('pos_driver_bill_toggle');
+        loadSavedPrinterDriverPresets();
+    }
+}
+
+function executeDiagnosticHardwareTestPrint() {
+    const name = document.getElementById("printerNodeNameField").value.trim().toUpperCase();
+    const typeMode = document.getElementById("printerSystemTypeSwitchDropdown").value;
+    let plainText = `${name}\n=== SYSTEM HARDWARE DIAGNOSTIC ===\nPort Channel: ${typeMode.toUpperCase()}\nStatus Engine: RUNNING\n==================================\n\n\n`;
+    let htmlContent = `<div class="c b">HARDWARE SYSTEM DIAGNOSTIC</div><div class="f"><span>Framework:</span><span>${typeMode.toUpperCase()}</span></div><div class="f"><span>Status:</span><span class="b">ACTIVE</span></div>`;
+    routePayloadToOutputDriver(plainText, compileHtmlContainerWrapper(htmlContent));
+}
+
+let dynamicPendingTotalCartBalanceValue = 0;
+
+function triggerCheckoutModalPipeline() {
+    if(cart.length === 0) return alert("Pending order balance tracking register empty.");
+    dynamicPendingTotalCartBalanceValue = cart.reduce((sum, c) => sum + (c.price * c.qty), 0);
+    document.getElementById("paymentModalBalanceTargetLabel").innerText = dynamicPendingTotalCartBalanceValue.toLocaleString();
+    document.getElementById("paymentRouteStepSelection").style.display = "block";
+    document.getElementById("paymentRouteStepCashForm").style.display = "none";
+    document.getElementById("paymentRoutingModalContainer").style.display = "flex";
+}
+
+function initializeCashPaymentInputModule() {
+    document.getElementById("paymentRouteStepSelection").style.display = "none";
+    document.getElementById("paymentRouteStepCashForm").style.display = "block";
+    document.getElementById("cashFormRequiredLabel").innerText = dynamicPendingTotalCartBalanceValue.toLocaleString();
+    const cashInput = document.getElementById("cashTenderedAmountInputField");
+    cashInput.value = ""; cashInput.focus();
+    document.getElementById("cashFormChangeLabel").innerText = "0.00";
+    document.getElementById("cashSubmitSettlementBtn").disabled = true;
+}
+
+function backToPaymentSelectionModule() {
+    document.getElementById("paymentRouteStepSelection").style.display = "block";
+    document.getElementById("paymentRouteStepCashForm").style.display = "none";
+}
+
+/* --- LEAP INTO CALCULATE RUNS --- */
+function calculateTenderChangeValueRefund() {
+    const val = parseFloat(document.getElementById("cashTenderedAmountInputField").value) || 0;
+    const change = val - dynamicPendingTotalCartBalanceValue;
+    if (change >= 0) {
+        document.getElementById("cashFormChangeLabel").innerText = change.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById("cashSubmitSettlementBtn").disabled = false;
+    } else {
+        document.getElementById("cashFormChangeLabel").innerText = "Short Total Input";
+        document.getElementById("cashSubmitSettlementBtn").disabled = true;
+    }
+}
+
+function commitCashTransactionSettlement() {
+    const cashTendered = parseFloat(document.getElementById("cashTenderedAmountInputField").value) || 0;
+    const changeRefunded = cashTendered - dynamicPendingTotalCartBalanceValue;
+    executeFinalPOSOrderSettlementCommitPipeline("CASH", { tendered: cashTendered, change: changeRefunded });
+}
+
+function commitGCashTransactionSettlement() {
+    executeFinalPOSOrderSettlementCommitPipeline("GCASH", { tendered: dynamicPendingTotalCartBalanceValue, change: 0 });
+}
+
+function executeFinalPOSOrderSettlementCommitPipeline(paymentMethodLabel, ledgerMetaPayload) {
+    document.getElementById("paymentRoutingModalContainer").style.display = "none";
+    let date = getActiveDate(), receiptItems = [], totalBalance = 0;
+    for (let c of cart) {
+        let menuItem = menu[c.id];
+        if (menuItem && menuItem.recipe) {
+            for (let r of menuItem.recipe) { if (inventory[r.ingredient]) inventory[r.ingredient].quantity -= (r.amount * c.qty); }
+        }
+        totalBalance += (c.price * c.qty);
+        receiptItems.push({ id: c.id, name: c.name, price: c.price, qty: c.qty, refundedQty: 0 });
+    }
+    let tId = "TXN-" + Date.now();
+    transactions.push({ 
+        id: tId, 
+        date: date, 
+        items: receiptItems, 
+        paymentMethod: paymentMethodLabel,
+        tendered: ledgerMetaPayload.tendered,
+        change: ledgerMetaPayload.change,
+        timestamp: new Date().toISOString() 
+    });
+    if (document.getElementById("toggleReceiptPrintFunction").checked && document.getElementById("toggleAutoPrintExecution").checked) {
+        spoolReceiptPrintVouchers(tId, receiptItems, totalBalance, paymentMethodLabel, ledgerMetaPayload);
+    }
+    cart = []; updateCartDisplay(); renderInventory(); renderTransactions(); calculateAnalytics(); pushDataToCloud();
+}
+
+function spoolReceiptPrintVouchers(transactionId, receiptItems, totalBalance, paymentMethod, meta) {
+    const storeLabel = document.getElementById("printerNodeNameField").value.trim().toUpperCase();
+    let txt = `${storeLabel}\nID: ${transactionId}\nDate: ${getActiveDate()}\nMode: [${paymentMethod} TRANSACTION]\n--------------------------------\n`;
+    receiptItems.forEach(i => { txt += `${i.name} x${i.qty} - ₱${(i.qty * i.price).toLocaleString()}\n`; });
+    txt += `--------------------------------\nTOTAL BAL: ₱${totalBalance.toLocaleString()}\n`;
+    if(paymentMethod === "CASH") { txt += `TENDERED : ₱${meta.tendered.toLocaleString()}\nCHANGE   : ₱${meta.change.toLocaleString()}\n`; }
+    txt += `\n\n\n`;
+
+    let html = `<div class="center bold">ORDER VOUCHER</div><div class="f"><span>Txn ID:</span><span>${transactionId}</span></div><div class="f"><span>Method:</span><span class="b">${paymentMethod}</span></div><div class="d"></div>`;
+    receiptItems.forEach(i => { html += `<div class="f"><span>${i.name} x${i.qty}</span><span>₱${(i.qty * i.price).toLocaleString()}</span></div>`; });
+    html += `<div class="d"></div><div class="f b" style="font-size:12px;"><span>TOTAL BAL:</span><span>₱${totalBalance.toLocaleString()}</span></div>`;
+    if(paymentMethod === "CASH") { html += `<div class="f"><span>Tendered:</span><span>₱${meta.tendered.toLocaleString()}</span></div><div class="f"><span>Change Run:</span><span>₱${meta.change.toLocaleString()}</span></div>`; }
+    routePayloadToOutputDriver(txt, compileHtmlContainerWrapper(html));
+}
+
+function processEndShiftReport() {
+    let currentTermDate = getActiveDate(); document.getElementById('reportDateLabel').innerText = "Register Shift Audit Timeline: " + currentTermDate;
+    let filtered = transactions.filter(t => t.date === currentTermDate);
+    let gross = 0, ref = 0, cashOnHandDrawerTotal = 0, gcashLedgerSum = 0;
+    filtered.forEach(t => {
+        let txnPaid = 0, txnRef = 0;
+        (t.items || []).forEach(i => { txnPaid += (i.price * i.qty); txnRef += (i.price * (i.refundedQty || 0)); });
+        let txnNet = txnPaid - txnRef; gross += txnPaid; ref += txnRef;
+        if ((t.paymentMethod || "CASH") === "CASH") { cashOnHandDrawerTotal += txnNet; } else { gcashLedgerSum += txnNet; }
+    });
+    document.getElementById('reportTotalSales').innerText = gross.toLocaleString();
+    document.getElementById('reportTotalRefunds').innerText = ref.toLocaleString();
+    document.getElementById('reportNetEarnings').innerText = (gross - ref).toLocaleString();
+    document.getElementById('reportCashOnHandAuditSum').innerText = cashOnHandDrawerTotal.toLocaleString();
+    document.getElementById('reportGcashAuditSum').innerText = gcashLedgerSum.toLocaleString();
+    document.getElementById('accessGate').style.display = "flex"; document.getElementById('stepShiftSummaryReport').style.display = "block";
+    renderShiftReportTable();
+}
+
+function renderShiftReportTable() {
+    let currentTermDate = getActiveDate(), filteredTxns = transactions.filter(t => t.date === currentTermDate);
+    let selectedMode = document.querySelector('input[name="shiftReportViewOpt"]:checked').value, body = document.getElementById('reportItemizedTableBody');
+    body.innerHTML = "";
+    if (selectedMode === 'item') {
+        let aggregated = {};
+        filteredTxns.forEach(t => (t.items || []).forEach(i => { let net = i.qty - (i.refundedQty || 0); if (net > 0) { if(!aggregated[i.name]) aggregated[i.name] = { qty: 0, val: 0 }; aggregated[i.name].qty += net; aggregated[i.name].val += (net * i.price); } }));
+        for(let name in aggregated) body.innerHTML += `<tr><td><b>${name}</b></td><td>${aggregated[name].qty}x</td><td>₱${aggregated[name].val.toLocaleString()}</td></tr>`;
+    } else {
+        let aggCat = {};
+        filteredTxns.forEach(t => (t.items || []).forEach(i => { let net = i.qty - (i.refundedQty || 0); if (net > 0) { let c = (menu[i.id] && menu[i.id].category) ? menu[i.id].category : "General Catalog"; if(!aggCat[c]) aggCat[c] = { qty: 0, val: 0 }; aggCat[c].qty += net; aggCat[c].val += (net * i.price); } }));
+        for(let cat in aggCat) body.innerHTML += `<tr><td><b>${cat}</b></td><td>${aggCat[cat].qty}x</td><td>₱${aggCat[cat].val.toLocaleString()}</td></tr>`;
+    }
+}
+
+function printShiftVoucherReport() {
+    let gross = document.getElementById('reportTotalSales').innerText; 
+    let ref = document.getElementById('reportTotalRefunds').innerText; 
+    let net = document.getElementById('reportNetEarnings').innerText;
+    let cashOnHand = document.getElementById('reportCashOnHandAuditSum').innerText; 
+    let gcashTotal = document.getElementById('reportGcashAuditSum').innerText;
+    
+    let txt = `SHIFT SUMMARY LEDGER REPORT\nDate: ${getActiveDate()}\n--------------------------------\nGROSS: ₱${gross}\nREFUNDS: ₱${ref}\nNET EARNINGS: ₱${net}\n--------------------------------\nDrawer Cash On-Hand: ₱${cashOnHand}\nVirtual GCash Pool: ₱${gcashTotal}\n--------------------------------\n`;
+    let html = `<div class="center bold">SHIFT DRAWER AUDIT VOUCHER</div><div class="d"></div><div class="f"><span>Gross Sales:</span><span>₱${gross}</span></div><div class="f"><span>Refund Blocks:</span><span>₱${ref}</span></div><div class="f b"><span>NET REVENUE:</span><span>₱${net}</span></div><div class="d"></div><div class="f b" style="color:#27ae60;"><span>DRAWER CASH:</span><span>₱${cashOnHand}</span></div><div class="f b" style="color:#9b59b6;"><span>GCASH POOL:</span><span>₱${gcashTotal}</span></div><div class="d"></div>`;
+    
+    let activeRows = document.querySelectorAll('#reportItemizedTableBody tr');
+    if (activeRows.length > 0) {
+        txt += `BREAKDOWN AUDIT:\n`;
+        activeRows.forEach(row => {
+            let cells = row.querySelectorAll('td');
+            if (cells.length >= 3) {
+                let label = cells[0].innerText;
+                let qty = cells[1].innerText;
+                let value = cells[2].innerText;
+                txt += `${label} (${qty}) - ${value}\n`;
+                html += `<div class="f"><span>${label} (${qty})</span><span>${value}</span></div>`;
+            }
+        });
+    }
+    txt += `\n\n\n`;
+    routePayloadToOutputDriver(txt, compileHtmlContainerWrapper(html));
+}
+
+function checkAuthOnLoad() {
+    const sessionAuthenticated = sessionStorage.getItem('pos_session_verified');
+    const savedKey = localStorage.getItem('pos_activated_license_key');
+    const userLockType = localStorage.getItem('pos_user_lock_type');
+    const userLockValue = localStorage.getItem('pos_user_lock_value');
+    document.getElementById('stepLicense').style.display = 'none'; document.getElementById('stepLocalLogin').style.display = 'none'; document.getElementById('stepChoice').style.display = 'none'; document.getElementById('stepSetupCredentials').style.display = 'none'; document.getElementById('stepShiftSummaryReport').style.display = 'none';
+    if (sessionAuthenticated === 'true' && savedKey) { currentActiveLicenseKey = savedKey; document.getElementById('accessGate').style.display = 'none'; pullDataFromCloud(); return; }
+    if (savedKey && userLockType && userLockValue) {
+        currentActiveLicenseKey = savedKey; document.getElementById('accessGate').style.display = 'flex'; document.getElementById('stepLocalLogin').style.display = 'block';
+        const loginContainer = document.getElementById('loginInputContainer');
+        if (userLockType === 'key') { loginContainer.innerHTML = `<input type="number" pattern="[0-9]*" inputmode="numeric" id="localLoginInput" class="gate-input" placeholder="ENTER PIN KEY">`; }
+        else { loginContainer.innerHTML = `<input type="password" id="localLoginInput" class="gate-input" placeholder="ENTER TERMINAL PASSWORD">`; }
+    } else { document.getElementById('accessGate').style.display = 'flex'; document.getElementById('stepLicense').style.display = 'block'; }
+}
+
+async function validateKeyWithCloud() {
+    const inputKey = document.getElementById('licenseKeyInput').value.trim().toUpperCase(); if(!inputKey) return alert("Field cannot be empty.");
+    try {
+        const response = await fetch(`${FIREBASE_BASE_URL}/licenses/${inputKey}.json`);
+        const licenseData = await response.json();
+        if (licenseData && licenseData.status === "active") {
+            currentActiveLicenseKey = inputKey; localStorage.setItem('pos_activated_license_key', inputKey);
+            await fetch(`${FIREBASE_BASE_URL}/licenses/${inputKey}/is_activated.json`, { method: 'PUT', body: JSON.stringify(true) });
+            await pullDataFromCloud();
+            document.getElementById('stepLicense').style.display = 'none'; document.getElementById('stepChoice').style.display = 'block';
+        } else { alert("❌ Code invalid or inactive."); }
+    } catch(err) { alert("Network fault connecting to node."); }
+}
+
+function showCredentialSetup(type) {
+    temporarySetupType = type; document.getElementById('stepChoice').style.display = 'none'; document.getElementById('stepSetupCredentials').style.display = 'block';
+    const container = document.getElementById('setupInputContainer');
+    if (type === 'key') { container.innerHTML = `<input type="number" id="newCredentialValue" class="gate-input" placeholder="e.g. 1234">`; }
+    else { container.innerHTML = `<input type="password" id="newCredentialValue" class="gate-input" placeholder="e.g. Password123">`; }
+}
+
+async function commitPersonalCredentials() {
+    const val = document.getElementById('newCredentialValue').value.trim(); if (!val) return alert("Value missing.");
+    localStorage.setItem('pos_user_lock_type', temporarySetupType); localStorage.setItem('pos_user_lock_value', val);
+    sessionStorage.setItem('pos_session_verified', 'true'); document.getElementById('accessGate').style.display = 'none'; await pullDataFromCloud();
+}
+
+function verifyLocalLogin() {
+    if (document.getElementById('localLoginInput').value.trim() === localStorage.getItem('pos_user_lock_value')) { sessionStorage.setItem('pos_session_verified', 'true'); document.getElementById('accessGate').style.display = 'none'; pullDataFromCloud(); }
+    else { alert("❌ Access denied."); }
+}
+
+async function finalizeSystemSignOutAndPurgeLocalStorage() { await pushDataToCloud(); sessionStorage.removeItem('pos_session_verified'); menu = {}; inventory = {}; transactions = []; totalSales = 0; cart = []; checkAuthOnLoad(); }
+function purgeSystemStorage() { if(confirm("De-authorizing will clear registrations and keys. Continue?")) { localStorage.clear(); sessionStorage.clear(); currentActiveLicenseKey = ""; checkAuthOnLoad(); } }
+function updateGlobalIngredientsDatalist() {
+    const ingDatalist = document.getElementById('allInventoryIngredientsDatalist'); const catDatalist = document.getElementById('existingCategories');
+    if(ingDatalist) ingDatalist.innerHTML = Object.keys(inventory).map(ing => `<option value="${ing}">`).join('');
+    let uniqueCategories = new Set(); Object.keys(menu).forEach(id => { if(menu[id].category) uniqueCategories.add(menu[id].category); });
+    if(catDatalist) catDatalist.innerHTML = Array.from(uniqueCategories).map(cat => `<option value="${cat}">`).join('');
 }
 
 function renderMenu() {
-    const display = document.getElementById('menuDisplay');
-    display.innerHTML = '';
-    for (let cat in menu) {
-        if (Object.keys(menu[cat]).length === 0) continue; // skip categories that have become empty
-        let section = `<div class='category-container' data-cat='${cat.toLowerCase()}'>`;
-        section += `<div class='category-name'>${cat}</div><div class='menu-grid'>`;
-        for (let item in menu[cat]) {
-            section += `<div class='menu-item' onclick='addToCart("${item}", ${menu[cat][item].price}, "${cat}")'>`;
-            section += `<span class='name'>${item}</span><span class='price'>₱${menu[cat][item].price}</span></div>`;
-        }
-        section += '</div></div>';
-        display.innerHTML += section;
+    const menuDisplay = document.getElementById('menuDisplay'); if (!menuDisplay) return;
+    if (Object.keys(menu).length === 0) { menuDisplay.innerHTML = `<p style="text-align:center; color:#7f8c8d; font-style:italic;">No menu items deployed.</p>`; renderManagementTable(); return; }
+    let categorized = {}; Object.keys(menu).forEach(id => { let item = menu[id]; let cat = item.category || "General Catalog"; if (!categorized[cat]) categorized[cat] = []; categorized[cat].push({ id, ...item }); });
+    let html = "";
+    for (let cat in categorized) {
+        html += `<div class="category-container"><div class="category-name">📁 ${cat}</div><div class="menu-grid">`;
+        categorized[cat].forEach(item => { let itemPrice = parseFloat(item.price) || 0; html += `<div class="menu-item" onclick="addToCart('${item.id}')"><span class="name">${item.name}</span><span class="price">₱${itemPrice.toLocaleString()}</span></div>`; });
+        html += `</div></div>`;
     }
-    renderMenuManagementTable();
-    updateCategoryDatalist();
-}
-
-function filterMenu() {
-    let q = document.getElementById('searchBar').value.toLowerCase();
-    document.querySelectorAll('.menu-item').forEach(el => {
-        el.style.display = el.innerText.toLowerCase().includes(q) ? '' : 'none';
-    });
-}
-
-function addToCart(name, price, category) {
-    cart.push({name, price, category});
-    updateCartDisplay();
-}
-
-function updateCartDisplay() {
-    const list = document.getElementById('cartList');
-    list.innerHTML = '';
-    let subtotal = 0;
-    cart.forEach((item, i) => {
-        subtotal += item.price;
-        list.innerHTML += `<li class='cart-item'><span>${item.name}</span><span>₱${item.price} <button class='refund-btn' onclick='cart.splice(${i},1);updateCartDisplay()'>x</button></span></li>`;
-    });
-    document.getElementById('cartTotal').innerText = subtotal;
-}
-
-function checkout() {
-    if (cart.length === 0) return;
-    
-    for (let orderItem of cart) {
-        // Safe check in case item was deleted mid-session
-        if (!menu[orderItem.category] || !menu[orderItem.category][orderItem.name]) continue;
-        
-        let menuItemRecipe = menu[orderItem.category][orderItem.name].ingredients;
-        if (menuItemRecipe) {
-            for (let ingredient in menuItemRecipe) {
-                if (inventory[ingredient]) {
-                    inventory[ingredient].qty -= menuItemRecipe[ingredient];
-                }
-            }
-        }
-    }
-
-    let total = parseInt(document.getElementById('cartTotal').innerText);
-    totalSales += total;
-    
-    transactions.push({
-        id: transactions.length + 1,
-        amount: total,
-        date: getActiveDate(),
-        items: [...cart]
-    });
-    
-    cart = [];
-    updateCartDisplay();
-    renderTransactions();
-    renderInventory();
-    calculateAnalytics();
-}
-
-function renderTransactions() {
-    document.getElementById('salesTotal').innerText = totalSales;
-    const log = document.getElementById('salesLog');
-    log.innerHTML = transactions.map((t, tIdx) => `
-        <div class='transaction-card'>
-            <div class='transaction-header'>
-                <span>Order #${t.id} (${t.date})</span>
-                <span>₱${t.amount}</span>
-            </div>
-            <div style='font-size: 0.85em;'>
-                ${t.items.map((item, iIdx) => `
-                    <div style='display:flex; justify-content:space-between; margin: 2px 0;'>
-                        <span>${item.name}</span>
-                        <span>₱${item.price} <button class='refund-btn' onclick='refundItem(${tIdx}, ${iIdx})'>Refund Item</button></span>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `).reverse().join('');
-}
-
-function refundItem(tIdx, iIdx) {
-    const item = transactions[tIdx].items[iIdx];
-    
-    // Check if the recipe still exists for calculation fallback
-    if (menu[item.category] && menu[item.category][item.name]) {
-        let menuItemRecipe = menu[item.category][item.name].ingredients;
-        if (menuItemRecipe) {
-            for (let ingredient in menuItemRecipe) {
-                if (inventory[ingredient]) {
-                    inventory[ingredient].qty = Number(inventory[ingredient].qty) + menuItemRecipe[ingredient];
-                }
-            }
-        }
-    }
-    
-    totalSales -= item.price;
-    transactions[tIdx].items.splice(iIdx, 1);
-    transactions[tIdx].amount = transactions[tIdx].items.reduce((sum, item) => sum + item.price, 0);
-    if (transactions[tIdx].items.length === 0) {
-        transactions.splice(tIdx, 1);
-    }
-    renderTransactions();
-    renderInventory();
-    calculateAnalytics();
-}
-
-/* --- DYNAMIC MENU MANAGEMENT UTILITIES --- */
-
-function renderMenuManagementTable() {
-    const body = document.getElementById('menuManagementTableBody');
-    body.innerHTML = '';
-    for (let cat in menu) {
-        for (let item in menu[cat]) {
-            body.innerHTML += `
-                <tr>
-                    <td><span class="trend-badge style='background:#e8f4fd; color:#2c3e50;'">${cat}</span></td>
-                    <td><strong>${item}</strong></td>
-                    <td>₱${menu[cat][item].price}</td>
-                    <td><button class="danger-btn" onclick="removeProductFromMenu('${cat}', '${item}')">Discontinue Item</button></td>
-                </tr>
-            `;
-        }
-    }
-}
-
-function updateCategoryDatalist() {
-    const list = document.getElementById('existingCategories');
-    list.innerHTML = Object.keys(menu).map(cat => `<option value="${cat}">`).join('');
-}
-
-function addNewItemToMenu() {
-    const catInput = document.getElementById('newMenuCategory').value.trim();
-    const nameInput = document.getElementById('newMenuItemName').value.trim();
-    const priceInput = parseFloat(document.getElementById('newMenuPrice').value);
-
-    if (!catInput || !nameInput || isNaN(priceInput) || priceInput < 0) {
-        return alert("Please enter a valid Category, Item Name, and Selling Price!");
-    }
-
-    if (!menu[catInput]) {
-        menu[catInput] = {};
-    }
-
-    if (menu[catInput][nameInput]) {
-        return alert("This item name already exists in this category!");
-    }
-
-    // Register into system structure
-    menu[catInput][nameInput] = { price: priceInput, ingredients: {} };
-
-    // Reset input fields
-    document.getElementById('newMenuItemName').value = '';
-    document.getElementById('newMenuPrice').value = '';
-    
-    alert(`Successfully launched ${nameInput}! You can now assign its ingredients recipe below.`);
-    renderMenu();
-}
-
-function removeProductFromMenu(category, itemName) {
-    if (confirm(`Are you sure you want to stop offering and completely remove "${itemName}" from the system?`)) {
-        delete menu[category][itemName];
-        
-        // Clear active editing targets if deleted item was loaded
-        if (document.getElementById('selectedRecipeItem').value === `${category}||${itemName}`) {
-            document.getElementById('selectedRecipeItem').value = '';
-            document.getElementById('currentlyEditingLabel').innerText = 'No item selected';
-            document.getElementById('recipeBuilder').innerHTML = '';
-            document.getElementById('recipeSearchInput').value = '';
-        }
-        
-        renderMenu();
-    }
-}
-
-function updateInventoryKey(oldKey, newKey) {
-    if (oldKey === newKey) return;
-    inventory[newKey] = inventory[oldKey];
-    delete inventory[oldKey];
-}
-
-function addInventoryItem() {
-    const newKey = "New Item " + (Object.keys(inventory).length + 1);
-    inventory[newKey] = {qty: 0, unit: 'unit'};
-    renderInventory();
+    menuDisplay.innerHTML = html; renderManagementTable();
 }
 
 function renderInventory() {
-    const body = document.getElementById('inventoryBody');
-    body.innerHTML = Object.keys(inventory).map(key => `
-        <tr>
-            <td><input type='text' class='inventory-input' value='${key}' onchange="updateInventoryKey('${key}', this.value); renderInventory();"></td>
-            <td><input type='number' class='inventory-input' value='${inventory[key].qty}' onchange="inventory['${key}'].qty=Number(this.value)"></td>
-            <td><input type='text' class='inventory-input' value='${inventory[key].unit}' onchange="inventory['${key}'].unit=this.value"></td>
-        </tr>
-    `).join('');
-}
-
-function toggleRecipeList(show) {
-    const options = document.getElementById('recipeMenuOptions');
-    if (show) {
-        renderRecipeOptions();
-        options.style.display = 'block';
-    } else {
-        setTimeout(() => options.style.display = 'none', 200);
-    }
-}
-
-function renderRecipeOptions() {
-    const container = document.getElementById('recipeMenuOptions');
-    const query = document.getElementById('recipeSearchInput').value.toLowerCase();
-    container.innerHTML = '';
-    
-    for (let cat in menu) {
-        for (let item in menu[cat]) {
-            if (item.toLowerCase().includes(query) || cat.toLowerCase().includes(query)) {
-                let div = document.createElement('div');
-                div.className = 'search-option';
-                div.innerText = `[${cat}] ${item}`;
-                div.onclick = () => selectItemForRecipe(cat, item);
-                container.appendChild(div);
-            }
-        }
-    }
-}
-
-function filterRecipeSearch() {
-    renderRecipeOptions();
-}
-
-function selectItemForRecipe(cat, item) {
-    document.getElementById('selectedRecipeItem').value = `${cat}||${item}`;
-    document.getElementById('currentlyEditingLabel').innerText = `Editing: [${cat}] ${item}`;
-    document.getElementById('recipeSearchInput').value = item;
-    toggleRecipeList(false);
-    loadRecipeBuilder(cat, item);
-}
-
-function loadRecipeBuilder(cat, item) {
-    const recipe = menu[cat][item].ingredients || {};
-    const builder = document.getElementById('recipeBuilder');
-    builder.innerHTML = '';
-
-    Object.keys(recipe).forEach(ing => {
-        builder.appendChild(createRecipeRowElement(ing, recipe[ing]));
+    const body = document.getElementById('inventoryBody'); if (!body) return;
+    let html = ""; if (inventoryOrder.length === 0 || inventoryOrder.length !== Object.keys(inventory).length) { inventoryOrder = Object.keys(inventory); }
+    if (inventoryOrder.length === 0) { body.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#7f8c8d;">Inventory metrics empty.</td></tr>`; return; }
+    inventoryOrder.forEach(name => {
+        let item = inventory[name]; if (!item) return; let qty = parseFloat(item.quantity) || 0; let unitType = (item.unit || 'g').toLowerCase().trim();
+        let triggerAlert = (unitType === 'g' || unitType === 'ml') ? (qty < 500) : (qty < 5); let rowClass = triggerAlert ? 'class="low-stock-alert-row"' : '';
+        html += `<tr ${rowClass}><td><input type="text" class="inventory-input" value="${name}" onchange="renameInventoryKey('${name}', this.value)" style="font-weight:bold;"></td><td><input type="number" class="inventory-input" value="${qty}" onchange="updateStockQuantity('${name}', this.value)"></td><td><input type="text" class="inventory-input" list="unitsDatalist" value="${item.unit || 'g'}" onchange="updateStockUnit('${name}', this.value)"></td></tr>`;
     });
-
-    if(Object.keys(recipe).length === 0) {
-        builder.innerHTML = `<p id="emptyRecipeMsg" style="color:#aaa; text-align:center; font-style:italic; margin: 10px 0;">No ingredients assigned.</p>`;
-    }
+    body.innerHTML = html;
 }
 
-function createRecipeRowElement(selectedIngredient = '', quantity = 1) {
-    const row = document.createElement('div');
-    row.className = 'recipe-row';
-    let optionsHtml = Object.keys(inventory).map(ing => `
-        <option value="${ing}" ${ing === selectedIngredient ? 'selected' : ''}>${ing} (${inventory[ing].unit})</option>
-    `).join('');
-    row.innerHTML = `
-        <select class="recipe-select" style="flex:2;">${optionsHtml}</select>
-        <input type="number" class="recipe-input" style="flex:1;" value="${quantity}" min="1" step="any">
-        <button class="refund-btn" onclick="this.parentElement.remove();">Remove</button>
-    `;
-    return row;
-}
+function updateStockQuantity(name, val) { if(inventory[name]) { inventory[name].quantity = parseFloat(val) || 0; pushDataToCloud(); renderInventory(); } }
+function updateStockUnit(name, val) { if(inventory[name]) { inventory[name].unit = val.trim(); pushDataToCloud(); renderInventory(); } }
+function addInventoryItemInline() { const body = document.getElementById('inventoryBody'); if (!body) return; if (inventoryOrder.length === 0) body.innerHTML = ""; const randomPlaceholderId = "New Ingredient " + (Object.keys(inventory).length + 1); inventory[randomPlaceholderId] = { quantity: 0, unit: 'pcs' }; inventoryOrder.unshift(randomPlaceholderId); renderInventory(); }
+function renameInventoryKey(oldName, newName) { newName = newName.trim(); if (!newName || oldName === newName) return; if (inventory[newName]) { alert("Material already exists."); renderInventory(); return; } inventory[newName] = inventory[oldName]; delete inventory[oldName]; let idx = inventoryOrder.indexOf(oldName); if(idx !== -1) inventoryOrder[idx] = newName; pushDataToCloud(); updateGlobalIngredientsDatalist(); renderInventory(); }
 
-function addIngredientToRecipeRow() {
-    const msg = document.getElementById('emptyRecipeMsg');
-    if(msg) msg.remove();
-    const builder = document.getElementById('recipeBuilder');
-    const defaultIng = Object.keys(inventory)[0] || '';
-    builder.appendChild(createRecipeRowElement(defaultIng, 1));
-}
-
-function saveRecipe() {
-    const val = document.getElementById('selectedRecipeItem').value;
-    if (!val) return alert("Please select an item first!");
-    const [cat, item] = val.split('||');
-    const rows = document.getElementById('recipeBuilder').querySelectorAll('.recipe-row');
-    let newRecipe = {};
-    rows.forEach(row => {
-        const ing = row.querySelector('.recipe-select').value;
-        const qty = parseFloat(row.querySelector('.recipe-input').value) || 0;
-        if(qty > 0) newRecipe[ing] = qty;
+function filterMenu() {
+    let q = document.getElementById('searchBar').value.toLowerCase();
+    document.querySelectorAll('.category-container').forEach(container => {
+        let catName = container.querySelector('.category-name').innerText.toLowerCase(); let items = container.querySelectorAll('.menu-item'); let matchCount = 0;
+        items.forEach(item => { let name = item.querySelector('.name').innerText.toLowerCase(); if(name.includes(q) || catName.includes(q)) { item.style.display = "block"; matchCount++; } else { item.style.display = "none"; } });
+        container.style.display = matchCount > 0 ? "block" : "none";
     });
-    menu[cat][item].ingredients = newRecipe;
-    alert(`Saved recipe for ${item}`);
 }
 
-/* --- HISTORICAL SALES PERIOD ANALYTICS COMPONENT --- */
+function addToCart(id) { let item = menu[id]; if(!item) return; let itemPrice = parseFloat(item.price) || 0; let cartItem = cart.find(c => c.id === id); if(cartItem) cartItem.qty++; else cart.push({ id, name: item.name, price: itemPrice, qty: 1 }); updateCartDisplay(); }
+function updateCartQty(id, delta) { let idx = cart.findIndex(c => c.id === id); if(idx === -1) return; cart[idx].qty += delta; if(cart[idx].qty <= 0) cart.splice(idx, 1); updateCartDisplay(); }
+function updateCartDisplay() { const list = document.getElementById('cartList'); if(!list) return; list.innerHTML = cart.map(c => `<li class="cart-item"><span><b>${c.name}</b> (x${c.qty}) - ₱${(c.price * c.qty).toLocaleString()}</span><div><button class="refund-btn" style="color:#27ae60; border-color:#27ae60; padding:2px 6px;" onclick="updateCartQty('${c.id}', 1)">+</button><button class="refund-btn" style="padding:2px 6px;" onclick="updateCartQty('${c.id}', -1)">-</button></div></li>`).join(''); let total = cart.reduce((sum, c) => sum + (c.price * c.qty), 0); document.getElementById('cartTotal').innerText = total.toLocaleString(); }
 
-function getWeekNumber(dateStr) {
-    const d = new Date(dateStr);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return `${d.getFullYear()}-W${weekNo}`;
+function openLowStockPrintManager() { document.getElementById('printManagerSection').style.display = "block"; printQueueListArray = []; Object.keys(inventory).forEach(name => { let item = inventory[name]; let qty = parseFloat(item.quantity) || 0; let unitType = (item.unit || 'g').toLowerCase().trim(); let isLow = (unitType === 'g' || unitType === 'ml') ? (qty < 500) : (qty < 5); if (isLow) { printQueueListArray.push({ name: name, qty: qty, unit: item.unit }); } }); renderPrintManagerQueueUI(); }
+function renderPrintManagerQueueUI() { let container = document.getElementById('printManagerQueueList'); if(printQueueListArray.length === 0) { container.innerHTML = `<p style="color:#7f8c8d; text-align:center; font-style:italic; font-size:0.9em; margin:10px 0;">Print queue empty.</p>`; return; } container.innerHTML = printQueueListArray.map((item, idx) => `<div class="print-manager-row"><span><b>${item.name}</b> (Stock: <span style="color:#e74c3c; font-weight:bold;">${item.qty} ${item.unit}</span>)</span><button class="danger-btn" style="padding: 2px 8px; margin:0;" onclick="removeItemFromPrintQueue(${idx})">❌ Remove</button></div>`).join(''); }
+function removeItemFromPrintQueue(index) { printQueueListArray.splice(index, 1); renderPrintManagerQueueUI(); }
+function injectItemIntoPrintQueue() { let lookupVal = document.getElementById('printManagerManualLookup').value.trim(); if(!lookupVal) return alert("Select profile baseline."); if(printQueueListArray.some(i => i.name.toLowerCase() === lookupVal.toLowerCase())) return alert("Material already inside stack."); let existingInvItem = inventory[lookupVal]; printQueueListArray.push({ name: lookupVal, qty: existingInvItem ? existingInvItem.quantity : 0, unit: existingInvItem ? existingInvItem.unit : 'pcs' }); document.getElementById('printManagerManualLookup').value = ""; renderPrintManagerQueueUI(); }
+function executeSelectedQueuePrint() { if(printQueueListArray.length === 0) return alert("Stack baseline criteria empty."); let txt = `LOW STOCK TICKETS MATRIX\n--------------------------------\n`; let html = `<div class="center bold">LOW STOCK RESTOCK TASK</div><div class="d"></div>`; printQueueListArray.forEach(i => { txt += `⚠️ ${i.name} [${i.qty} ${i.unit}]\n`; html += `<div class="f"><span>⚠️ ${i.name}</span><span>${i.qty} ${i.unit}</span></div>`; }); routePayloadToOutputDriver(txt, compileHtmlContainerWrapper(html)); }
+
+function switchNotebookPage(page) {
+    currentNotebookActivePage = page;
+    document.getElementById('successPageTab').className = page === 'success' ? 'notebook-page active-tab' : 'notebook-page inactive-tab';
+    document.getElementById('refundPageTab').className = page === 'refund' ? 'notebook-page active-tab' : 'notebook-page inactive-tab';
+    document.getElementById('successSalesLog').style.display = page === 'success' ? 'block' : 'none';
+    document.getElementById('refundSalesLog').style.display = page === 'refund' ? 'block' : 'none';
 }
 
-function switchAnalyticsInterval(interval) {
-    activeIntervalMode = interval;
-    document.querySelectorAll('.analytics-tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(`tab-${interval}`).classList.add('active');
+function toggleReceiptItemsView(cardElem, id) {
+    if(expandedReceiptCardIds.has(id)) { expandedReceiptCardIds.delete(id); cardElem.classList.remove('items-expanded'); }
+    else { expandedReceiptCardIds.add(id); cardElem.classList.add('items-expanded'); }
+}
+
+function processMicroItemRefund(txnId, itemId, event) {
+    event.stopPropagation();
+    let t = transactions.find(t => t.id === txnId); if(!t) return;
+    let item = t.items.find(i => i.id === itemId); if(!item) return;
+    if(item.refundedQty >= item.qty) return alert("All quantities of this row item are already marked void/refunded.");
     
-    const headers = { 'days': 'Date', 'weeks': 'Week Stamp', 'months': 'Month Line', 'years': 'Year' };
-    document.getElementById('periodColumnHeader').innerText = headers[interval];
-    
-    activeSelectedPeriodKey = null;
-    calculateAnalytics();
-    resetDrilldownTable();
-}
-
-function resetDrilldownTable() {
-    document.getElementById('analyticsDrilldownBody').innerHTML = `
-        <tr><td colspan="3" style="text-align: center; color: #aaa; font-style: italic;">Select an interval row from the summary matrix to evaluate its performance components.</td></tr>
-    `;
-    document.getElementById('drilldownTitle').innerText = "Drilldown Analysis Data";
+    item.refundedQty++;
+    if (menu[itemId] && menu[itemId].recipe) {
+        menu[itemId].recipe.forEach(r => { if(inventory[r.ingredient]) inventory[r.ingredient].quantity += r.amount; });
+    }
+    renderInventory(); renderTransactions(); calculateAnalytics(); pushDataToCloud();
 }
 
 function calculateAnalytics() {
-    let compilation = {};
+    let activeDate = getActiveDate();
+    let filtered = transactions.filter(t => t.date === activeDate);
+    let gross = 0, ref = 0;
+    filtered.forEach(t => (t.items || []).forEach(i => { gross += (i.price * i.qty); ref += (i.price * (i.refundedQty || 0)); }));
     
-    transactions.forEach(tx => {
-        let key = tx.date; 
-        if (activeIntervalMode === 'weeks') key = getWeekNumber(tx.date);
-        else if (activeIntervalMode === 'months') key = tx.date.substring(0, 7); 
-        else if (activeIntervalMode === 'years') key = tx.date.substring(0, 4);  
-        
-        if (!compilation[key]) {
-            compilation[key] = { revenue: 0, orders: 0, transactionRecords: [] };
-        }
-        compilation[key].revenue += tx.amount;
-        compilation[key].orders += 1;
-        compilation[key].transactionRecords.push(tx);
-    });
-    
-    let sortedKeys = Object.keys(compilation).sort();
-    const body = document.getElementById('analyticsSummaryBody');
-    body.innerHTML = '';
-    
-    if(sortedKeys.length === 0) {
-        body.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#aaa;">No processed transactions recorded yet.</td></tr>`;
-        return;
-    }
-    
-    sortedKeys.reverse().forEach((key, index) => {
-        let current = compilation[key];
-        let previousKey = sortedKeys[index + 1]; 
-        let prev = previousKey ? compilation[previousKey] : null;
-        
-        // Revenue Variance
-        let revGrowthHtml = `<span class="trend-badge trend-neutral">--</span>`;
-        if (prev) {
-            let pct = ((current.revenue - prev.revenue) / (prev.revenue || 1)) * 100;
-            if (pct > 0) revGrowthHtml = `<span class="trend-badge trend-up">▲ +${pct.toFixed(1)}%</span>`;
-            else if (pct < 0) revGrowthHtml = `<span class="trend-badge trend-down">▼ ${pct.toFixed(1)}%</span>`;
-        }
-        
-        // Volume Variance
-        let volGrowthHtml = `<span class="trend-badge trend-neutral">--</span>`;
-        if (prev) {
-            let pctVol = ((current.orders - prev.orders) / (prev.orders || 1)) * 100;
-            if (pctVol > 0) volGrowthHtml = `<span class="trend-badge trend-up">▲ +${pctVol.toFixed(1)}%</span>`;
-            else if (pctVol < 0) volGrowthHtml = `<span class="trend-badge trend-down">▼ ${pctVol.toFixed(1)}%</span>`;
-        }
-        
-        let row = document.createElement('tr');
-        row.className = 'clickable-row';
-        if (activeSelectedPeriodKey === key) row.style.background = '#e1f5fe';
-        row.onclick = () => {
-            activeSelectedPeriodKey = key;
-            calculateAnalytics(); 
-            renderPeriodDrilldown(current.transactionRecords, key);
-        };
-        
-        row.innerHTML = `
-            <td><strong>${key}</strong></td>
-            <td>₱${current.revenue.toLocaleString()}</td>
-            <td>${revGrowthHtml}</td>
-            <td>${current.orders} orders</td>
-            <td>${volGrowthHtml}</td>
-        `;
-        body.appendChild(row);
-    });
-    
-    if (activeSelectedPeriodKey && compilation[activeSelectedPeriodKey]) {
-        renderPeriodDrilldown(compilation[activeSelectedPeriodKey].transactionRecords, activeSelectedPeriodKey);
-    }
+    document.getElementById('salesTotal').innerText = gross.toLocaleString();
+    document.getElementById('refundsTotal').innerText = ref.toLocaleString();
+    document.getElementById('notebookSuccessTotal').innerText = "₱" + (gross - ref).toLocaleString();
+    document.getElementById('notebookRefundTotal').innerText = "₱" + ref.toLocaleString();
+    renderAnalyticsSuite();
 }
 
-function renderPeriodDrilldown(filteredTx = null, periodLabel = null) {
-    if (!filteredTx) {
-        if (!activeSelectedPeriodKey) return;
-        periodLabel = activeSelectedPeriodKey;
-        filteredTx = [];
-        transactions.forEach(tx => {
-            let k = tx.date;
-            if (activeIntervalMode === 'weeks') k = getWeekNumber(tx.date);
-            else if (activeIntervalMode === 'months') k = tx.date.substring(0, 7);
-            else if (activeIntervalMode === 'years') k = tx.date.substring(0, 4);
-            if (k === periodLabel) filteredTx.push(tx);
-        });
-    }
-    
-    document.getElementById('drilldownTitle').innerText = `Breakdown Matrix for [${periodLabel}]`;
-    const groupType = document.querySelector('input[name="drilldownGroup"]:checked').value;
-    document.getElementById('drilldownNameHeader').innerText = groupType === 'item' ? 'Product Item Name' : 'Menu Category';
-    
-    let metrics = {};
-    filteredTx.forEach(tx => {
-        tx.items.forEach(item => {
-            let identificationKey = (groupType === 'item') ? item.name : item.category;
-            if (!metrics[identificationKey]) {
-                metrics[identificationKey] = { quantity: 0, revenue: 0 };
-            }
-            metrics[identificationKey].quantity += 1;
-            metrics[identificationKey].revenue += item.price;
-        });
+function renderTransactions() {
+    const successLogContainer = document.getElementById('successSalesLog'); const refundLogContainer = document.getElementById('refundSalesLog');
+    if(!successLogContainer || !refundLogContainer) return; let targetDate = getActiveDate(); let filteredTransactions = transactions.filter(t => t.date === targetDate); document.getElementById('ledgerHeaderTitle').innerText = `Historical Ledger Log [${targetDate}]`;
+    let successHtml = "", refundHtml = ""; (filteredTransactions || []).slice().reverse().map(t => {
+        let paidAmt = 0, refAmt = 0; (t.items || []).forEach(i => { paidAmt += (parseFloat(i.price) * parseInt(i.qty)); refAmt += (parseFloat(i.price) * parseInt(i.refundedQty || 0)); });
+        let itemsMarkupList = (t.items || []).map(i => `<div class="transaction-item-row"><span>${i.name} (x${i.qty})${parseInt(i.refundedQty) > 0 ? ` <span style="color:#e74c3c;">[Ref -${i.refundedQty}]</span>`:''}</span><div><span>₱${(i.qty * i.price).toLocaleString()}</span><button class="micro-refund-btn" onclick="processMicroItemRefund('${t.id}','${i.id}', event)">Refund 1</button></div></div>`).join('');
+        let expansionCssClass = expandedReceiptCardIds.has(t.id) ? "items-expanded" : "";
+        let cardBaseHtml = `<div class="transaction-card ${expansionCssClass}" onclick="toggleReceiptItemsView(this, '${t.id}')"><div class="transaction-header"><span>🆔 ${t.id}</span><span style="font-size:10px; background:#e2e8f0; padding:2px 6px; border-radius:4px;">${t.paymentMethod || 'CASH'}</span></div><div class="transaction-totals-sub-row"><span style="color:#219653;">Paid: ₱${paidAmt.toLocaleString()}</span><span style="color:#c5221f;">Refunded: ₱${refAmt.toLocaleString()}</span><span style="font-weight:bold; margin-top:4px; padding-top:4px; border-top:1px dashed #ddd;">Net: ₱${(paidAmt - refAmt).toLocaleString()}</span></div><div class="transaction-items-wrapper">${itemsMarkupList}</div></div>`;
+        if (paidAmt > refAmt) successHtml += cardBaseHtml; if (refAmt > 0) refundHtml += cardBaseHtml;
     });
-    
-    const body = document.getElementById('analyticsDrilldownBody');
-    body.innerHTML = '';
-    
-    let sortedMetrics = Object.keys(metrics).sort((a,b) => metrics[b].revenue - metrics[a].revenue);
-    if(sortedMetrics.length === 0) {
-        body.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#aaa; font-style:italic;">No product distribution data available.</td></tr>`;
-        return;
-    }
-    
-    sortedMetrics.forEach(key => {
-        body.innerHTML += `
-            <tr>
-                <td><strong>${key}</strong></td>
-                <td>${metrics[key].quantity} units</td>
-                <td>₱${metrics[key].revenue.toLocaleString()}</td>
-            </tr>
-        `;
-    });
+    successLogContainer.innerHTML = successHtml || `<p style="color:#7f8c8d; text-align:center; padding:15px;">No active sales logs.</p>`; refundLogContainer.innerHTML = refundHtml || `<p style="color:#7f8c8d; text-align:center; padding:15px;">No return logs.</p>`;
 }
 
-// Initializing hooks
-renderMenu();
-renderInventory();
+function renderManagementTable() {
+    const b = document.getElementById('menuManagementTableBody'); if(!b) return;
+    b.innerHTML = Object.keys(menu).map(id => `<tr><td><input type="text" class="recipe-input" value="${menu[id].category || ''}" onchange="updateMenuRowProperty('${id}', 'category', this.value)"></td><td><input type="text" class="recipe-input" value="${menu[id].name}" onchange="updateMenuRowProperty('${id}', 'name', this.value)" style="font-weight:bold;"></td><td><input type="number" class="recipe-input" value="${menu[id].price || 0}" onchange="updateMenuRowProperty('${id}', 'price', this.value)"></td><td><button class="danger-btn" onclick="removeIdentityFromMenu('${id}')">Delete</button></td></tr>`).join('');
+    let searchableOptions = document.getElementById('recipeMenuOptions'); if(searchableOptions) searchableOptions.innerHTML = Object.keys(menu).map(id => `<div class="search-option" onclick="selectRecipeTargetItem('${id}')">📦 ${menu[id].name}</div>`).join('');
+}
+function updateMenuRowProperty(id, field, val) { if(!menu[id]) return; if(field==='price') menu[id].price = parseFloat(val) || 0; else menu[id][field] = val.trim(); pushDataToCloud(); renderMenu(); }
+function removeIdentityFromMenu(id) { if(confirm("Remove item definition line?")) { delete menu[id]; pushDataToCloud(); renderMenu(); } }
+function addNewItemToMenu() {
+    let cat = document.getElementById('newMenuCategory').value.trim(), name = document.getElementById('newMenuItemName').value.trim(), price = parseFloat(document.getElementById('newMenuPrice').value); if(!name || isNaN(price)) return alert("Missing structural data properties.");
+    let id = "MENU-" + Date.now(); menu[id] = { name, price, category: cat || "General Catalog", recipe: [] }; document.getElementById('newMenuItemName').value = ""; document.getElementById('newMenuPrice').value = ""; pushDataToCloud(); updateGlobalIngredientsDatalist(); renderMenu();
+}
+
+function selectRecipeTargetItem(id) {
+    toggleRecipeList(false); if(!menu[id]) return; document.getElementById('selectedRecipeItem').value = id; document.getElementById('recipeSearchInput').value = menu[id].name; document.getElementById('currentlyEditingLabel').innerHTML = `Editing recipe metric parameters for: <b>${menu[id].name}</b>`;
+    let builder = document.getElementById('recipeBuilder'); builder.innerHTML = ""; if(menu[id].recipe) menu[id].recipe.forEach(r => addIngredientToRecipeRow(r.ingredient, r.amount, r.unit));
+}
+function toggleRecipeList(show) { setTimeout(() => { document.getElementById('recipeMenuOptions').style.display = show ? 'block':'none'; }, 200); }
+function filterRecipeSearch() { let q = document.getElementById('recipeSearchInput').value.toLowerCase(); document.querySelectorAll('#recipeMenuOptions .search-option').forEach(opt => { opt.style.display = opt.innerText.toLowerCase().includes(q) ? 'block':'none'; }); }
+function addIngredientToRecipeRow(ing = "", amt = 0, unit = "") { let b = document.getElementById('recipeBuilder'), div = document.createElement('div'); div.className = "recipe-row"; let selectedUnit = unit || (ing && inventory[ing] ? inventory[ing].unit : "g"); div.innerHTML = `<input type="text" class="recipe-search-sub-input" list="allInventoryIngredientsDatalist" placeholder="Ingredient..." value="${ing}" onchange="updateRecipeRowUnitPlaceholder(this)"><input type="number" class="recipe-unit-sub-input" placeholder="Amt" step="any" value="${amt}"><input type="text" style="width:70px;" class="recipe-input" list="unitsDatalist" placeholder="Unit" value="${selectedUnit}"><button class="danger-btn" onclick="this.parentElement.remove()">X</button>`; b.appendChild(div); }
+function updateRecipeRowUnitPlaceholder(inputElem) { let ingName = inputElem.value.trim(); if(ingName && inventory[ingName]) { let row = inputElem.parentElement, unitInput = row.querySelectorAll('input')[2]; if(unitInput) unitInput.value = inventory[ingName].unit || 'g'; } }
+function saveRecipe() {
+    let id = document.getElementById('selectedRecipeItem').value; if(!id || !menu[id]) return alert("Target assignment context missing."); let rows = document.querySelectorAll('#recipeBuilder .recipe-row'), rec = [];
+    for(let r of rows) { let inputs = r.querySelectorAll('input'), ing = inputs[0].value.trim(), amt = parseFloat(inputs[1].value), unit = inputs[2].value.trim(); if(ing && !isNaN(amt)) { rec.push({ ingredient: ing, amount: amt, unit }); if(!inventory[ing]) { inventory[ing] = { quantity: 0, unit: unit }; inventoryOrder.push(ing); } } }
+    menu[id].recipe = rec; alert("Structural formulation maps locked."); document.getElementById('recipeBuilder').innerHTML = ""; document.getElementById('selectedRecipeItem').value = ""; document.getElementById('recipeSearchInput').value = ""; document.getElementById('currentlyEditingLabel').innerHTML = "No item identity chosen"; pushDataToCloud(); updateGlobalIngredientsDatalist(); renderInventory();
+}
+
+function switchAnalyticsInterval(mode) { activeIntervalMode = mode; document.querySelectorAll('.analytics-tab-btn').forEach(b => b.classList.remove('active')); document.getElementById('tab-' + mode).classList.add('active'); activeSelectedPeriodKey = null; renderAnalyticsSuite(); }
+function groupTransactionsByInterval() {
+    let groups = {}; transactions.forEach(t => { if (!t.date) return; let k = t.date; if (activeIntervalMode === 'weeks') { let d = new Date(t.date), day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6:1); k = new Date(d.setDate(diff)).toISOString().split('T')[0] + " (Wk)"; } else if (activeIntervalMode === 'months') { k = t.date.substring(0, 7); } else if (activeIntervalMode === 'years') { k = t.date.substring(0, 4); } if(!groups[k]) groups[k] = []; groups[k].push(t); }); return groups;
+}
+function renderAnalyticsSuite() {
+    const body = document.getElementById('analyticsSummaryBody'); if(!body) return; document.getElementById('periodColumnHeader').innerText = activeIntervalMode.toUpperCase(); let groups = groupTransactionsByInterval(), sortedKeys = Object.keys(groups).sort().reverse(); if(sortedKeys.length === 0) { body.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8;">Timeline blank.</td></tr>`; return; }
+    let html = ""; sortedKeys.forEach(k => { let txns = groups[k], gross = 0, ref = 0; txns.forEach(t => (t.items || []).forEach(img => { gross += (img.price * img.qty); ref += (img.price * (img.refundedQty || 0)); })); let isSelected = activeSelectedPeriodKey === k ? 'style="background-color: #e8f4fd; border-left: 4px solid #3498db;"' : ''; html += `<tr class="clickable-row" ${isSelected} onclick="setActiveAnalyticsPeriodRow('${k}')"><td><b>${k}</b></td><td style="color:#219653;">₱${gross.toLocaleString()}</td><td style="color:#c5221f;">₱${ref.toLocaleString()}</td><td><b>₱${(gross-ref).toLocaleString()}</b></td><td>-</td><td>${txns.length} Txns</td></tr>`; }); body.innerHTML = html; if(!activeSelectedPeriodKey && sortedKeys.length > 0) activeSelectedPeriodKey = sortedKeys[0]; renderPeriodDrilldown();
+}
+function setActiveAnalyticsPeriodRow(k) { activeSelectedPeriodKey = k; renderAnalyticsSuite(); }
+function renderPeriodDrilldown() {
+    const body = document.getElementById('analyticsDrilldownBody'); if(!body || !activeSelectedPeriodKey) return; let groups = groupTransactionsByInterval(), txns = groups[activeSelectedPeriodKey] || [], groupType = document.querySelector('input[name="drilldownGroup"]:checked').value; body.innerHTML = "";
+    if (groupType === 'item') { document.getElementById('drilldownNameHeader').innerText = "Component Line Label"; let agg = {}; txns.forEach(t => (t.items || []).forEach(i => { let n = i.qty - (i.refundedQty || 0); if(n > 0) { if(!agg[i.name]) agg[i.name] = { qty:0, val:0 }; agg[i.name].qty += n; agg[i.name].val += (n * i.price); } })); for(let n in agg) body.innerHTML += `<tr><td>📦 ${n}</td><td>${agg[n].qty} sold</td><td><b>₱${agg[n].val.toLocaleString()}</b></td></tr>`; }
+    else { document.getElementById('drilldownNameHeader').innerText = "Segment Group Category"; let aggCat = {}; txns.forEach(t => (t.items || []).forEach(i => { let n = i.qty - (i.refundedQty || 0); if(n > 0) { let catNode = (menu[i.id] && menu[i.id].category) ? menu[i.id].category : "General Catalog"; if(!aggCat[catNode]) aggCat[catNode] = { qty:0, val:0 }; aggCat[catNode].qty += n; aggCat[catNode].val += (n * i.price); } })); for(let c in aggCat) body.innerHTML += `<tr><td>📁 ${c}</td><td>${aggCat[c].qty} units</td><td><b>₱${aggCat[c].val.toLocaleString()}</b></td></tr>`; }
+}
+
+setTimeout(checkAuthOnLoad, 100);
 </script>
 </body>
 </html>
-"""
-HTML(full_pos_system_code)
